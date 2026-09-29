@@ -24,7 +24,7 @@ if config.config_file_name is not None:
 
 # ── Target metadata (todos os models) ───────────────────
 # Importar todos os models aqui para que o Alembic os detecte
-# from src.backend.modules.auth.models import *  # noqa
+from src.backend.modules.auth.models import *  # noqa
 # from src.backend.modules.barbers.models import *  # noqa
 # (adicionar conforme os models forem criados)
 
