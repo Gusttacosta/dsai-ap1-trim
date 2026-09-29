@@ -29,6 +29,7 @@ from src.backend.modules.barbers.models import *  # noqa
 from src.backend.modules.services.models import *  # noqa
 from src.backend.modules.appointments.models import *  # noqa
 from src.backend.modules.products.models import *  # noqa
+from src.backend.modules.subscriptions.models import *  # noqa
 # (adicionar conforme os models forem criados)
 
 target_metadata = Base.metadata

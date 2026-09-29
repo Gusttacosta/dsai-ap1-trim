@@ -82,4 +82,7 @@ app.include_router(appointments_router, prefix="/api/appointments", tags=["Appoi
 from src.backend.modules.products.router import router as products_router
 app.include_router(products_router, prefix="/api/products", tags=["Products"])
 
+from src.backend.modules.subscriptions.router import router as subscriptions_router
+app.include_router(subscriptions_router, prefix="/api/subscriptions", tags=["Subscriptions"])
+
 # ──────────────────────────────────────────────────────────
