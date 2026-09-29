@@ -33,6 +33,7 @@ from src.backend.modules.subscriptions.models import *  # noqa
 from src.backend.modules.finance.models import *  # noqa
 from src.backend.modules.expenses.models import *  # noqa
 from src.backend.modules.walkin.models import *  # noqa
+from src.backend.modules.gallery.models import *  # noqa
 # (adicionar conforme os models forem criados)
 
 target_metadata = Base.metadata
