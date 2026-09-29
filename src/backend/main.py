@@ -73,6 +73,7 @@ app.include_router(auth_router, prefix="/api/auth", tags=["Auth"])
 from src.backend.modules.barbers.router import router as barbers_router
 app.include_router(barbers_router, prefix="/api/barbers", tags=["Barbers"])
 
-# TODO: Registrar os outros routers conforme
-# forem implementados:
+from src.backend.modules.services.router import router as services_router
+app.include_router(services_router, prefix="/api/services", tags=["Services"])
+
 # ──────────────────────────────────────────────────────────
