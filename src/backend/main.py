@@ -103,4 +103,7 @@ app.include_router(gallery_router, prefix="/api/gallery", tags=["Gallery"])
 from src.backend.modules.loyalty.router import router as loyalty_router
 app.include_router(loyalty_router, prefix="/api/loyalty", tags=["Loyalty"])
 
+from src.backend.modules.notifications.router import router as notifications_router
+app.include_router(notifications_router, prefix="/api/notifications", tags=["Notifications"])
+
 # ──────────────────────────────────────────────────────────
