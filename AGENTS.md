@@ -59,7 +59,26 @@ Todas as sessões de desenvolvimento (conduzidas por agentes de IA ou humanos) *
 
 ---
 
-## 4. Padrão da Pasta `SPEC/` (Spec-Driven Development)
+## 4. Arquitetura e Modularidade (Proibido "Obeliscos")
+
+O projeto adota uma política de **tolerância zero** para arquivos gigantes (obeliscos/arquivos monolíticos) e código espaguete. A manutenção e escalabilidade são prioridades.
+
+### Backend (Python/FastAPI)
+- **Estrutura Modular:** Cada módulo (auth, barbers, services, etc.) deve ser um pacote isolado dentro de `src/backend/modules/`.
+- **Separação de Responsabilidades (Clean Architecture style):**
+  - `models.py`: Apenas definição das tabelas do banco.
+  - `schemas.py`: Apenas validação de dados (Pydantic).
+  - `service.py`: Regras de negócio (nunca no router).
+  - `router.py`: Apenas a definição da rota e injeção de dependências, delegando a execução para o service.
+
+### Frontend (React/Vite)
+- **Componentização:** Componentes grandes devem ser quebrados em subcomponentes menores, reutilizáveis e com responsabilidade única.
+- **Hooks Customizados:** Lógica complexa ou de fetch de dados deve ser extraída do componente para *custom hooks* (ex.: `useAuth`, `useAppointments`).
+- **Páginas vs. Componentes:** Telas/Páginas ficam em `src/pages/` (ou rota) e componentes reutilizáveis em `src/components/`.
+
+---
+
+## 5. Padrão da Pasta `SPEC/` (Spec-Driven Development)
 
 ### Nomenclatura dos arquivos
 - Formato: `AAAA-MM-DD-<parte-do-sistema>.md`
@@ -179,12 +198,13 @@ A apresentação da dupla não terá slides. A avaliação será conduzida em 4 
 
 ---
 
-## 9. Checklist de Conformidade Pré-Commit e Entrega
+## 10. Checklist de Conformidade Pré-Commit e Entrega
 
 - [ ] URL pública ativa e adicionada com destaque no topo do `README.md`.
 - [ ] Especificações com formato `AAAA-MM-DD-<parte>.md` na pasta `SPEC/`.
 - [ ] Ordem cronológica comprovada no Git: commits de spec precedem commits de código.
 - [ ] Logs brutos de todas as interações salvos em `prompts/sessoes/`.
+- [ ] Código refatorado e modularizado: nenhum "obelisco" ou arquivo excessivamente longo. Regras de negócio separadas dos controllers/routers.
 - [ ] Ausência total de segredos (chaves de API / senhas) no repositório.
 - [ ] Todos os commits possuem os metadados `Agent:` e `Spec:`.
 - [ ] Ambos os membros da dupla possuem commits autorados com suas respectivas contas.
