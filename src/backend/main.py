@@ -94,4 +94,7 @@ app.include_router(expenses_router, prefix="/api/expenses", tags=["Expenses"])
 from src.backend.modules.dashboard.router import router as dashboard_router
 app.include_router(dashboard_router, prefix="/api/reports", tags=["Reports & Dashboard"])
 
+from src.backend.modules.walkin.router import router as walkin_router
+app.include_router(walkin_router, prefix="/api/queue", tags=["Walk-in Queue"])
+
 # ──────────────────────────────────────────────────────────
