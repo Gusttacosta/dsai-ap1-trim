@@ -70,8 +70,9 @@ async def api_root():
 from src.backend.modules.auth.router import router as auth_router
 app.include_router(auth_router, prefix="/api/auth", tags=["Auth"])
 
+from src.backend.modules.barbers.router import router as barbers_router
+app.include_router(barbers_router, prefix="/api/barbers", tags=["Barbers"])
+
 # TODO: Registrar os outros routers conforme
 # forem implementados:
-# from src.backend.modules.barbers.router import router as barbers_router
-# app.include_router(barbers_router, prefix="/api/barbers", tags=["Barbers"])
 # ──────────────────────────────────────────────────────────
