@@ -100,4 +100,7 @@ app.include_router(walkin_router, prefix="/api/queue", tags=["Walk-in Queue"])
 from src.backend.modules.gallery.router import router as gallery_router
 app.include_router(gallery_router, prefix="/api/gallery", tags=["Gallery"])
 
+from src.backend.modules.loyalty.router import router as loyalty_router
+app.include_router(loyalty_router, prefix="/api/loyalty", tags=["Loyalty"])
+
 # ──────────────────────────────────────────────────────────
