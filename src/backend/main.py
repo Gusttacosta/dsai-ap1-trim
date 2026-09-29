@@ -88,4 +88,7 @@ app.include_router(subscriptions_router, prefix="/api/subscriptions", tags=["Sub
 from src.backend.modules.finance.router import router as finance_router
 app.include_router(finance_router, prefix="/api/finance", tags=["Finance"])
 
+from src.backend.modules.expenses.router import router as expenses_router
+app.include_router(expenses_router, prefix="/api/expenses", tags=["Expenses"])
+
 # ──────────────────────────────────────────────────────────
