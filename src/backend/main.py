@@ -76,4 +76,7 @@ app.include_router(barbers_router, prefix="/api/barbers", tags=["Barbers"])
 from src.backend.modules.services.router import router as services_router
 app.include_router(services_router, prefix="/api/services", tags=["Services"])
 
+from src.backend.modules.appointments.router import router as appointments_router
+app.include_router(appointments_router, prefix="/api/appointments", tags=["Appointments"])
+
 # ──────────────────────────────────────────────────────────

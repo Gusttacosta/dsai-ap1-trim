@@ -27,6 +27,7 @@ if config.config_file_name is not None:
 from src.backend.modules.auth.models import *  # noqa
 from src.backend.modules.barbers.models import *  # noqa
 from src.backend.modules.services.models import *  # noqa
+from src.backend.modules.appointments.models import *  # noqa
 # (adicionar conforme os models forem criados)
 
 target_metadata = Base.metadata
