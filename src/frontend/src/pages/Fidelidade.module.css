@@ -1,0 +1,137 @@
+.loyaltyContainer {
+  max-width: 1000px;
+  margin: 4rem auto;
+  padding: 2rem;
+  animation: fadeIn 0.5s ease-out;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.walletHeader {
+  background: linear-gradient(135deg, var(--color-bg-elevated) 0%, rgba(234, 179, 8, 0.1) 100%);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  padding: 3rem;
+  text-align: center;
+  margin-bottom: 4rem;
+  position: relative;
+  overflow: hidden;
+}
+
+.walletHeader::after {
+  content: '🏆';
+  font-size: 15rem;
+  position: absolute;
+  right: -2rem;
+  top: -4rem;
+  opacity: 0.05;
+  transform: rotate(15deg);
+  pointer-events: none;
+}
+
+.balanceLabel {
+  color: var(--color-text-secondary);
+  font-size: 1.1rem;
+  text-transform: uppercase;
+  letter-spacing: 2px;
+  margin-bottom: 0.5rem;
+}
+
+.balanceValue {
+  font-size: 5rem;
+  font-weight: 800;
+  color: var(--color-primary);
+  line-height: 1;
+  text-shadow: var(--shadow-glow);
+}
+
+.balanceValue span {
+  font-size: 1.5rem;
+  color: #fff;
+  font-weight: 600;
+  margin-left: 0.5rem;
+}
+
+.sectionTitle {
+  font-size: 1.75rem;
+  color: #fff;
+  margin-bottom: 2rem;
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.rewardsGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 1.5rem;
+}
+
+.rewardCard {
+  background: var(--color-bg-elevated);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  padding: 1.5rem;
+  display: flex;
+  flex-direction: column;
+  transition: all var(--transition-fast);
+}
+
+.rewardCard:hover {
+  border-color: var(--color-primary);
+  transform: translateY(-3px);
+}
+
+.rewardName {
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: #fff;
+  margin-bottom: 0.5rem;
+}
+
+.rewardDesc {
+  color: var(--color-text-secondary);
+  font-size: 0.9rem;
+  margin-bottom: 1.5rem;
+  flex-grow: 1;
+}
+
+.rewardFooter {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: auto;
+}
+
+.rewardCost {
+  font-weight: 700;
+  color: var(--color-primary);
+  font-size: 1.1rem;
+}
+
+.btnRedeem {
+  background: transparent;
+  color: var(--color-primary);
+  border: 1px solid var(--color-primary);
+  padding: 0.5rem 1rem;
+  border-radius: var(--radius-full);
+  font-weight: 600;
+  font-size: 0.85rem;
+  transition: all var(--transition-fast);
+}
+
+.btnRedeem:hover {
+  background: var(--color-primary);
+  color: #000;
+}
+
+.btnRedeem:disabled {
+  opacity: 0.3;
+  cursor: not-allowed;
+  background: transparent;
+  color: var(--color-text-secondary);
+  border-color: var(--color-border);
+}

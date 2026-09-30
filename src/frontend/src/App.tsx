@@ -5,6 +5,7 @@ import Booking from './pages/Booking';
 import Dashboard from './pages/Dashboard';
 import Gallery from './pages/Gallery';
 import TrimClub from './pages/TrimClub';
+import Fidelidade from './pages/Fidelidade';
 
 // Navbar Simples
 const Navbar = () => (
@@ -12,6 +13,7 @@ const Navbar = () => (
     <Link to="/" style={{ fontWeight: 800, fontSize: '1.5rem' }}>Trim</Link>
     <Link to="/galeria" style={{ color: 'var(--color-text-secondary)' }}>Galeria</Link>
     <Link to="/club" style={{ color: 'var(--color-text-secondary)' }}>Trim Club</Link>
+    <Link to="/fidelidade" style={{ color: 'var(--color-text-secondary)' }}>Prêmios</Link>
   </nav>
 );
 
@@ -30,6 +32,7 @@ const App = () => {
                   <Route path="/agenda" element={<Booking />} />
                   <Route path="/galeria" element={<Gallery />} />
                   <Route path="/club" element={<TrimClub />} />
+                  <Route path="/fidelidade" element={<Fidelidade />} />
                 </Routes>
               </main>
             </>
