@@ -16,11 +16,12 @@ async def seed_database(db: AsyncSession = Depends(get_db)):
     user_q = await db.execute(select(User).where(User.email == "admin@trim.com"))
     if not user_q.scalars().first():
         from src.backend.modules.auth.security import get_password_hash
+        from src.backend.modules.auth.models import UserRole
         admin = User(
             email="admin@trim.com",
             hashed_password=get_password_hash("admin123"),
             full_name="Gustavo Admin",
-            role="ADMIN"
+            role=UserRole.ADMIN
         )
         db.add(admin)
         await db.commit()
