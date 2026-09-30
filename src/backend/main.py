@@ -12,6 +12,8 @@ from fastapi.middleware.cors import CORSMiddleware
 from src.backend.config import settings
 
 
+from src.backend.database import engine, Base
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Lifecycle hook: executa na inicialização e no shutdown do app."""
@@ -19,6 +21,12 @@ async def lifespan(app: FastAPI):
     print(f"🚀 {settings.app_name} backend starting...")
     print(f"   Environment: {settings.app_env}")
     print(f"   Debug: {settings.debug}")
+    
+    print("🛠️ Verificando/criando tabelas no banco de dados...")
+    async with engine.begin() as conn:
+        await conn.run_sync(Base.metadata.create_all)
+    print("✅ Banco de dados pronto!")
+    
     yield
     # ── Shutdown ──
     print(f"👋 {settings.app_name} backend shutting down...")
