@@ -20,6 +20,8 @@ async def seed_database(secret: str = "open", db: AsyncSession = Depends(get_db)
     from src.backend.modules.barbers.service import BarberService
 
     try:
+        b_service = BarberService(db)
+        
         # Adiciona usuários admin e barbeiros
         user_q = await db.execute(select(User).where(User.email == "admin@trim.com"))
         admin = user_q.scalars().first()
@@ -36,7 +38,6 @@ async def seed_database(secret: str = "open", db: AsyncSession = Depends(get_db)
         # Cria perfil de barbeiro se não existir
         barber_q = await db.execute(select(Barber).where(Barber.user_id == admin.id))
         if not barber_q.scalars().first():
-            b_service = BarberService(db)
             barber = Barber(
                 user_id=admin.id,
                 bio="Especialista Trim",
