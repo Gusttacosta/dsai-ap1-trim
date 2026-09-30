@@ -1,6 +1,7 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate, Routes, Route, Link, useLocation } from 'react-router-dom';
 import styles from './Dashboard.module.css';
+import api from '../api';
 
 import AdminStore from './AdminStore';
 import AdminServices from './AdminServices';
@@ -12,12 +13,12 @@ const MOCK_QUEUE = [
   { id: 2, name: 'Pedro H.', service: 'Degradê', waitTime: '5 min' },
 ];
 
-const Overview = () => {
+const Overview = ({ user }: { user: any }) => {
   const [queue, setQueue] = useState(MOCK_QUEUE);
   return (
     <>
       <div className={styles.header}>
-        <h2 className={styles.title}>Visão Geral de Hoje</h2>
+        <h2 className={styles.title}>Bem-vindo(a), {user?.full_name || 'Admin'}!</h2>
       </div>
       <div className={styles.statsGrid}>
         <div className={styles.statCard}>
@@ -56,10 +57,31 @@ const Overview = () => {
 const Dashboard = () => {
   const navigate = useNavigate();
   const location = useLocation();
+  const [user, setUser] = useState<any>(null);
+
+  useEffect(() => {
+    const fetchUser = async () => {
+      try {
+        const response = await api.get('/auth/me');
+        setUser(response.data);
+      } catch (err) {
+        localStorage.removeItem('token');
+        navigate('/login');
+      }
+    };
+    fetchUser();
+  }, [navigate]);
 
   const getNavClass = (path: string) => {
     return `${styles.navItem} ${location.pathname === path ? styles.active : ''}`;
   };
+
+  const handleLogout = () => {
+    localStorage.removeItem('token');
+    navigate('/login');
+  };
+
+  if (!user) return <div style={{ padding: '2rem' }}>Carregando...</div>;
 
   return (
     <div className={styles.dashboardContainer}>
@@ -73,12 +95,14 @@ const Dashboard = () => {
         <Link to="/admin/servicos" className={getNavClass('/admin/servicos')}>Serviços</Link>
         <Link to="/admin/financeiro" className={getNavClass('/admin/financeiro')}>Financeiro</Link>
         <Link to="/admin/notificacoes" className={getNavClass('/admin/notificacoes')}>Notificações</Link>
+        <div style={{ flex: 1 }} />
+        <button onClick={handleLogout} style={{ padding: '1rem', background: 'transparent', border: '1px solid var(--color-border)', color: '#fff', cursor: 'pointer', borderRadius: '8px' }}>Sair</button>
       </div>
 
       {/* Main Content */}
       <div className={styles.mainArea}>
         <Routes>
-          <Route path="/" element={<Overview />} />
+          <Route path="/" element={<Overview user={user} />} />
           <Route path="/loja" element={<AdminStore />} />
           <Route path="/servicos" element={<AdminServices />} />
           <Route path="/financeiro" element={<AdminFinance />} />

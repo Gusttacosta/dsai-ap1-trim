@@ -7,6 +7,8 @@ import Gallery from './pages/Gallery';
 import TrimClub from './pages/TrimClub';
 import Fidelidade from './pages/Fidelidade';
 
+import Login from './pages/Login';
+
 // Navbar Simples
 const Navbar = () => (
   <nav style={{ padding: '1rem 2rem', borderBottom: '1px solid var(--color-border)', display: 'flex', gap: '2rem', alignItems: 'center' }}>
@@ -14,6 +16,8 @@ const Navbar = () => (
     <Link to="/galeria" style={{ color: 'var(--color-text-secondary)' }}>Galeria</Link>
     <Link to="/club" style={{ color: 'var(--color-text-secondary)' }}>Trim Club</Link>
     <Link to="/fidelidade" style={{ color: 'var(--color-text-secondary)' }}>Prêmios</Link>
+    <div style={{ flex: 1 }} />
+    <Link to="/login" style={{ padding: '0.5rem 1rem', background: 'var(--color-primary)', color: '#000', borderRadius: '8px', fontWeight: 'bold' }}>Login / Admin</Link>
   </nav>
 );
 
@@ -29,6 +33,7 @@ const App = () => {
               <main className="main-content">
                 <Routes>
                   <Route path="/" element={<Landing />} />
+                  <Route path="/login" element={<Login />} />
                   <Route path="/agenda" element={<Booking />} />
                   <Route path="/galeria" element={<Gallery />} />
                   <Route path="/club" element={<TrimClub />} />
