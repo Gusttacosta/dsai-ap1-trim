@@ -12,7 +12,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.backend.database import get_db
 from src.backend.modules.auth.dependencies import get_current_admin, get_current_barber_or_admin
-from src.backend.modules.auth.models import Role, User
+from src.backend.modules.auth.models import UserRole, User
 from src.backend.modules.barbers.models import Barber
 from src.backend.modules.gallery.schemas import (
     GalleryTagCreateRequest,
@@ -73,7 +73,7 @@ async def upload_image(
     if not barber_id:
         raise HTTPException(status_code=404, detail="Perfil de barbeiro não encontrado.")
 
-    auto_approve = user.role == Role.ADMIN
+    auto_approve = user.role == UserRole.ADMIN
     service = GalleryService(db)
     return await service.upload_image(barber_id, data, auto_approve)
 
@@ -112,7 +112,7 @@ async def delete_image(
     service = GalleryService(db)
     
     requesting_barber_id = None
-    if user.role != Role.ADMIN:
+    if user.role != UserRole.ADMIN:
         stmt = select(Barber.id).where(Barber.user_id == user.id)
         requesting_barber_id = (await db.execute(stmt)).scalar_one_or_none()
         
