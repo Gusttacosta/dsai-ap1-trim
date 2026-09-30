@@ -1,12 +1,13 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import styles from './AdminShared.module.css';
+import api from '../api';
 
 const AdminServices = () => {
-  const [services] = useState([
-    { id: 1, name: 'Corte Máquina', duration: 30, price: 40.00 },
-    { id: 2, name: 'Corte + Barba', duration: 60, price: 75.00 },
-    { id: 3, name: 'Platinado', duration: 120, price: 120.00 },
-  ]);
+  const [services, setServices] = useState<any[]>([]);
+
+  useEffect(() => {
+    api.get('/services').then(res => setServices(res.data)).catch(console.error);
+  }, []);
 
   return (
     <div className={styles.adminContainer}>
@@ -28,7 +29,7 @@ const AdminServices = () => {
           {services.map(s => (
             <tr key={s.id}>
               <td style={{ color: '#fff', fontWeight: 500 }}>{s.name}</td>
-              <td>{s.duration} min</td>
+              <td>{s.duration_minutes} min</td>
               <td>{s.price.toFixed(2)}</td>
               <td>
                 <button className={styles.btnIcon}>Editar</button>

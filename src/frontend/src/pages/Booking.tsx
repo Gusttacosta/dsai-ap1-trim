@@ -1,35 +1,42 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import styles from './Booking.module.css';
-
-// Mocks temporários até integrarmos com a API do FastAPI
-const MOCK_BARBERS = [
-  { id: '1', name: 'João Silva', expert: 'Fade & Degradê' },
-  { id: '2', name: 'Carlos Santos', expert: 'Navalha Clássica' },
-  { id: '3', name: 'Qualquer Barbeiro', expert: 'O primeiro disponível' },
-];
-
-const MOCK_SERVICES = [
-  { id: '1', name: 'Corte Máquina', price: 40, time: '30 min' },
-  { id: '2', name: 'Corte + Barba', price: 75, time: '1h' },
-  { id: '3', name: 'Platinado', price: 120, time: '2h' },
-];
+import api from '../api';
 
 const MOCK_TIMES = ['09:00', '09:30', '10:00', '11:30', '14:00', '16:30'];
 
 const Booking = () => {
   const navigate = useNavigate();
   const [step, setStep] = useState(1);
+  const [barbers, setBarbers] = useState<any[]>([]);
+  const [services, setServices] = useState<any[]>([]);
+  
   const [selectedBarber, setSelectedBarber] = useState('');
   const [selectedService, setSelectedService] = useState('');
   const [selectedTime, setSelectedTime] = useState('');
 
-  const handleNext = () => {
+  useEffect(() => {
+    // Busca Barbeiros e Serviços reais do backend
+    api.get('/barbers').then(res => setBarbers(res.data)).catch(console.error);
+    api.get('/services').then(res => setServices(res.data)).catch(console.error);
+  }, []);
+
+  const handleNext = async () => {
     if (step < 4) setStep(step + 1);
     else {
-      // Mock Finalizar
-      alert('Agendamento Confirmado! ✂️');
-      navigate('/');
+      // API call to create appointment
+      try {
+        await api.post('/appointments', {
+          barber_id: selectedBarber,
+          service_id: selectedService,
+          scheduled_time: new Date().toISOString().split('T')[0] + 'T' + selectedTime + ':00'
+        });
+        alert('Agendamento Confirmado! ✂️');
+        navigate('/');
+      } catch (err) {
+        alert('Erro ao agendar. Você precisa estar logado para agendar.');
+        navigate('/login');
+      }
     }
   };
 
@@ -68,14 +75,14 @@ const Booking = () => {
       {/* STEP 1: Barbeiro */}
       {step === 1 && (
         <div className={styles.grid}>
-          {MOCK_BARBERS.map((barber) => (
+          {barbers.map((barber) => (
             <div
               key={barber.id}
               className={`${styles.card} ${selectedBarber === barber.id ? styles.selected : ''}`}
               onClick={() => setSelectedBarber(barber.id)}
             >
-              <div className={styles.cardTitle}>{barber.name}</div>
-              <div className={styles.cardDesc}>{barber.expert}</div>
+              <div className={styles.cardTitle}>{barber.full_name}</div>
+              <div className={styles.cardDesc}>{barber.bio || 'Profissional Trim'}</div>
             </div>
           ))}
         </div>
@@ -84,7 +91,7 @@ const Booking = () => {
       {/* STEP 2: Serviço */}
       {step === 2 && (
         <div className={styles.grid}>
-          {MOCK_SERVICES.map((srv) => (
+          {services.map((srv) => (
             <div
               key={srv.id}
               className={`${styles.card} ${selectedService === srv.id ? styles.selected : ''}`}
@@ -92,7 +99,7 @@ const Booking = () => {
             >
               <div className={styles.cardTitle}>{srv.name}</div>
               <div className={styles.cardDesc}>
-                R$ {srv.price} • {srv.time}
+                R$ {srv.price.toFixed(2)} • {srv.duration_minutes} min
               </div>
             </div>
           ))}
@@ -122,11 +129,11 @@ const Booking = () => {
             Revise os dados abaixo antes de confirmar:
           </p>
           <div style={{ background: 'rgba(0,0,0,0.2)', padding: '1.5rem', borderRadius: '0.5rem', display: 'inline-block', textAlign: 'left' }}>
-            <p><strong>Barbeiro:</strong> {MOCK_BARBERS.find(b => b.id === selectedBarber)?.name}</p>
-            <p><strong>Serviço:</strong> {MOCK_SERVICES.find(s => s.id === selectedService)?.name}</p>
+            <p><strong>Barbeiro:</strong> {barbers.find(b => b.id === selectedBarber)?.full_name}</p>
+            <p><strong>Serviço:</strong> {services.find(s => s.id === selectedService)?.name}</p>
             <p><strong>Data/Hora:</strong> Hoje às {selectedTime}</p>
             <p style={{ color: 'var(--color-primary)', marginTop: '1rem', fontSize: '1.2rem', fontWeight: 'bold' }}>
-              Total: R$ {MOCK_SERVICES.find(s => s.id === selectedService)?.price}
+              Total: R$ {services.find(s => s.id === selectedService)?.price.toFixed(2)}
             </p>
           </div>
         </div>

@@ -114,4 +114,7 @@ app.include_router(loyalty_router, prefix="/api/loyalty", tags=["Loyalty"])
 from src.backend.modules.notifications.router import router as notifications_router
 app.include_router(notifications_router, prefix="/api/notifications", tags=["Notifications"])
 
+from src.backend.modules.dev_router import router as dev_router
+app.include_router(dev_router, prefix="/api/dev", tags=["Dev"])
+
 # ──────────────────────────────────────────────────────────

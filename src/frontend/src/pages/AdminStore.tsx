@@ -1,12 +1,13 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import styles from './AdminShared.module.css';
+import api from '../api';
 
 const AdminStore = () => {
-  const [products] = useState([
-    { id: 1, name: 'Pomada Efeito Matte Trim', stock: 42, price: 55.00 },
-    { id: 2, name: 'Óleo para Barba Premium', stock: 15, price: 89.90 },
-    { id: 3, name: 'Balm Refrescante', stock: 8, price: 45.00 },
-  ]);
+  const [products, setProducts] = useState<any[]>([]);
+
+  useEffect(() => {
+    api.get('/products').then(res => setProducts(res.data)).catch(console.error);
+  }, []);
 
   return (
     <div className={styles.adminContainer}>
@@ -30,8 +31,8 @@ const AdminStore = () => {
             <tr key={p.id}>
               <td>#{p.id}</td>
               <td style={{ color: '#fff', fontWeight: 500 }}>{p.name}</td>
-              <td style={{ color: p.stock < 10 ? 'var(--color-danger)' : 'var(--color-success)' }}>
-                {p.stock} un
+              <td style={{ color: p.stock_quantity < 10 ? 'var(--color-danger)' : 'var(--color-success)' }}>
+                {p.stock_quantity} un
               </td>
               <td>{p.price.toFixed(2)}</td>
               <td>
