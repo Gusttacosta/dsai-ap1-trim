@@ -2,7 +2,7 @@
 
 > **AP1 — Desenvolvimento de Software Apoiado por IA (2026.4 — UFPA)**
 
-> **URL Pública:** [https://trim.app](https://trim.app) *(a definir — será atualizada antes da entrega)*
+> **URL Pública:** [https://dsai-ap1-trim-frontend-production.up.railway.app](https://dsai-ap1-trim-frontend-production.up.railway.app)
 
 Plataforma web de gestão para barbearias: agendamento online, controle de time, catálogo de serviços, venda de produtos, assinaturas/planos recorrentes, financeiro e CRM de clientes — tudo em um só lugar.
 
