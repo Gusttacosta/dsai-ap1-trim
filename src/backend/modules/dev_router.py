@@ -113,18 +113,39 @@ async def seed_database(secret: str = "open", db: AsyncSession = Depends(get_db)
                 apt1 = Appointment(
                     client_id=db_client.id,
                     barber_id=db_barber.id,
-                    service_id=db_service.id,
-                    scheduled_time=now + timedelta(hours=2),
-                    status=AppointmentStatus.SCHEDULED
+                    start_datetime=now + timedelta(hours=2),
+                    end_datetime=now + timedelta(hours=3),
+                    status=AppointmentStatus.CONFIRMED,
+                    total_price=db_service.price
                 )
                 apt2 = Appointment(
                     client_id=db_client.id,
                     barber_id=db_barber.id,
-                    service_id=db_service.id,
-                    scheduled_time=now - timedelta(days=1),
-                    status=AppointmentStatus.COMPLETED
+                    start_datetime=now - timedelta(days=1),
+                    end_datetime=now - timedelta(days=1, hours=-1),
+                    status=AppointmentStatus.COMPLETED,
+                    total_price=db_service.price
                 )
                 db.add_all([apt1, apt2])
+                await db.flush()
+                
+                # Opcional: Adicionar AppointmentItem para os agendamentos, já que o BD usa relação
+                from src.backend.modules.appointments.models import AppointmentItem
+                item1 = AppointmentItem(
+                    appointment_id=apt1.id,
+                    service_id=db_service.id,
+                    service_name=db_service.name,
+                    locked_price=db_service.price,
+                    duration_minutes=db_service.duration_minutes
+                )
+                item2 = AppointmentItem(
+                    appointment_id=apt2.id,
+                    service_id=db_service.id,
+                    service_name=db_service.name,
+                    locked_price=db_service.price,
+                    duration_minutes=db_service.duration_minutes
+                )
+                db.add_all([item1, item2])
                 await db.flush()
 
         # Adiciona Despesas (Expenses)
