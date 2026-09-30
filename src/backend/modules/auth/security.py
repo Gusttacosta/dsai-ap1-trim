@@ -8,23 +8,21 @@ from datetime import datetime, timedelta, timezone
 from typing import Any
 
 from jose import JWTError, jwt
-from passlib.context import CryptContext
+import bcrypt
 
 from src.backend.config import settings
 from src.backend.modules.auth.models import UserRole
 
-# Configuração do Passlib para usar bcrypt
-pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
-
-
 def verify_password(plain_password: str, hashed_password: str) -> bool:
     """Verifica se a senha em texto plano bate com o hash bcrypt."""
-    return pwd_context.verify(plain_password, hashed_password)
-
+    try:
+        return bcrypt.checkpw(plain_password.encode('utf-8'), hashed_password.encode('utf-8'))
+    except ValueError:
+        return False
 
 def get_password_hash(password: str) -> str:
     """Gera um hash bcrypt para a senha."""
-    return pwd_context.hash(password)
+    return bcrypt.hashpw(password.encode('utf-8'), bcrypt.gensalt()).decode('utf-8')
 
 
 def create_access_token(data: dict, role: UserRole) -> tuple[str, int]:
