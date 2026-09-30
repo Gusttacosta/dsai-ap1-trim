@@ -164,34 +164,34 @@ async def seed_database(secret: str = "open", db: AsyncSession = Depends(get_db)
             await db.flush()
 
         # Adiciona Galeria
-        from src.backend.modules.gallery.models import GalleryItem, TagEnum
-        gal_q = await db.execute(select(GalleryItem))
+        from src.backend.modules.gallery.models import PortfolioImage, GalleryTag
+        gal_q = await db.execute(select(PortfolioImage))
         if not gal_q.scalars().first():
             db_barber = (await db.execute(select(Barber))).scalars().first()
             if db_barber:
-                g1 = GalleryItem(image_url="https://images.unsplash.com/photo-1599351431202-1e0f0137899a?auto=format&fit=crop&q=80&w=400", title="Fade Clássico", tag=TagEnum.FADE, barber_id=db_barber.id)
-                g2 = GalleryItem(image_url="https://images.unsplash.com/photo-1621605815971-fbc98d665033?auto=format&fit=crop&q=80&w=400", title="Barba Lenhador", tag=TagEnum.BEARD, barber_id=db_barber.id)
+                g1 = PortfolioImage(image_url="https://images.unsplash.com/photo-1599351431202-1e0f0137899a?auto=format&fit=crop&q=80&w=400", barber_id=db_barber.id, description="Fade Clássico", is_approved=True)
+                g2 = PortfolioImage(image_url="https://images.unsplash.com/photo-1621605815971-fbc98d665033?auto=format&fit=crop&q=80&w=400", barber_id=db_barber.id, description="Barba Lenhador", is_approved=True)
                 db.add_all([g1, g2])
                 await db.flush()
 
         # Adiciona Fila Walk-in
-        from src.backend.modules.walkin.models import WalkinQueue, WalkinStatus
-        wq_q = await db.execute(select(WalkinQueue))
+        from src.backend.modules.walkin.models import WalkInQueue, WalkInStatus
+        wq_q = await db.execute(select(WalkInQueue))
         if not wq_q.scalars().first():
             db_service = (await db.execute(select(Service))).scalars().first()
             if db_service:
-                w1 = WalkinQueue(customer_name="Marcos Antonio", service_id=db_service.id, status=WalkinStatus.WAITING)
-                w2 = WalkinQueue(customer_name="Felipe Costa", service_id=db_service.id, status=WalkinStatus.IN_SERVICE)
+                w1 = WalkInQueue(customer_name="Marcos Antonio", requested_service_id=db_service.id, status=WalkInStatus.WAITING, position=1)
+                w2 = WalkInQueue(customer_name="Felipe Costa", requested_service_id=db_service.id, status=WalkInStatus.ATTENDING, position=2)
                 db.add_all([w1, w2])
                 await db.flush()
 
         # Adiciona Pontos de Fidelidade
-        from src.backend.modules.loyalty.models import LoyaltyPoints
-        loy_q = await db.execute(select(LoyaltyPoints))
+        from src.backend.modules.loyalty.models import LoyaltyWallet
+        loy_q = await db.execute(select(LoyaltyWallet))
         if not loy_q.scalars().first():
             db_client = (await db.execute(select(User).where(User.email == "cliente@trim.com"))).scalars().first()
             if db_client:
-                l1 = LoyaltyPoints(user_id=db_client.id, points_balance=150, total_earned=150)
+                l1 = LoyaltyWallet(user_id=db_client.id, balance=150, lifetime_points=150)
                 db.add(l1)
                 await db.flush()
 
