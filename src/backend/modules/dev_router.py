@@ -15,7 +15,8 @@ async def seed_database(db: AsyncSession = Depends(get_db)):
     try:
         # Adiciona usuários admin e barbeiros
         user_q = await db.execute(select(User).where(User.email == "admin@trim.com"))
-        if not user_q.scalars().first():
+        admin = user_q.scalars().first()
+        if not admin:
             from src.backend.modules.auth.security import get_password_hash
             from src.backend.modules.auth.models import UserRole
             admin = User(
@@ -25,7 +26,23 @@ async def seed_database(db: AsyncSession = Depends(get_db)):
                 role=UserRole.ADMIN
             )
             db.add(admin)
-            await db.commit()
+            await db.flush()
+
+        # Cria perfil de barbeiro se não existir
+        barber_q = await db.execute(select(Barber).where(Barber.user_id == admin.id))
+        if not barber_q.scalars().first():
+            from src.backend.modules.barbers.service import BarberService
+            b_service = BarberService(db)
+            barber = Barber(
+                user_id=admin.id,
+                bio="Especialista Trim",
+                commission_rate=50.0
+            )
+            db.add(barber)
+            await db.flush()
+            await b_service._create_default_schedules(barber.id)
+        
+        await db.commit()
 
         # Adiciona Serviços
         srv_q = await db.execute(select(Service))
