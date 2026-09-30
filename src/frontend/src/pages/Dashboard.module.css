@@ -1,0 +1,139 @@
+.dashboardContainer {
+  display: flex;
+  min-height: 100vh;
+  background: var(--color-bg);
+}
+
+.sidebar {
+  width: 250px;
+  background: var(--color-bg-elevated);
+  border-right: 1px solid var(--color-border);
+  padding: 2rem 1rem;
+  display: flex;
+  flex-direction: column;
+}
+
+.logo {
+  font-size: 1.5rem;
+  font-weight: 800;
+  color: var(--color-primary);
+  margin-bottom: 3rem;
+  text-align: center;
+}
+
+.navItem {
+  padding: 0.75rem 1rem;
+  border-radius: var(--radius-md);
+  color: var(--color-text-secondary);
+  font-weight: 500;
+  cursor: pointer;
+  transition: all var(--transition-fast);
+  margin-bottom: 0.5rem;
+}
+
+.navItem:hover, .navItem.active {
+  background: rgba(234, 179, 8, 0.1);
+  color: var(--color-primary);
+}
+
+.mainArea {
+  flex: 1;
+  padding: 2rem 3rem;
+  overflow-y: auto;
+}
+
+.header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 3rem;
+}
+
+.title {
+  font-size: 2rem;
+  color: #fff;
+}
+
+.statsGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 1.5rem;
+  margin-bottom: 3rem;
+}
+
+.statCard {
+  background: var(--color-bg-elevated);
+  border: 1px solid var(--color-border);
+  padding: 1.5rem;
+  border-radius: var(--radius-lg);
+}
+
+.statTitle {
+  color: var(--color-text-secondary);
+  font-size: 0.9rem;
+  margin-bottom: 0.5rem;
+}
+
+.statValue {
+  font-size: 2rem;
+  font-weight: 700;
+  color: #fff;
+}
+
+.statHighlight {
+  color: var(--color-success);
+}
+
+/* Walkin Queue */
+.queueSection {
+  background: var(--color-bg-elevated);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  padding: 1.5rem;
+}
+
+.queueTitle {
+  font-size: 1.25rem;
+  margin-bottom: 1.5rem;
+  color: #fff;
+}
+
+.queueList {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.queueItem {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 1rem;
+  background: var(--color-bg);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+}
+
+.queueInfo h4 {
+  margin: 0;
+  color: #fff;
+}
+
+.queueInfo p {
+  margin: 0;
+  font-size: 0.85rem;
+  color: var(--color-text-secondary);
+}
+
+.queueAction {
+  background: var(--color-primary);
+  color: #000;
+  padding: 0.5rem 1rem;
+  border-radius: var(--radius-full);
+  font-size: 0.85rem;
+  font-weight: 600;
+}
+
+.queueAction:hover {
+  background: var(--color-primary-hover);
+}

@@ -1,6 +1,8 @@
 import React from 'react';
 import { BrowserRouter, Routes, Route } from 'react-router-dom';
 import Landing from './pages/Landing';
+import Booking from './pages/Booking';
+import Dashboard from './pages/Dashboard';
 
 const App = () => {
   return (
@@ -9,6 +11,8 @@ const App = () => {
         <main className="main-content">
           <Routes>
             <Route path="/" element={<Landing />} />
+            <Route path="/agenda" element={<Booking />} />
+            <Route path="/admin" element={<Dashboard />} />
           </Routes>
         </main>
       </div>
