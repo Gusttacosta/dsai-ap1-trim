@@ -8,13 +8,22 @@ import AdminServices from './AdminServices';
 import AdminFinance from './AdminFinance';
 import AdminNotifications from './AdminNotifications';
 
-const MOCK_QUEUE = [
-  { id: 1, name: 'Marcos Almeida', service: 'Corte + Barba', waitTime: '15 min' },
-  { id: 2, name: 'Pedro H.', service: 'Degradê', waitTime: '5 min' },
-];
-
 const Overview = ({ user }: { user: any }) => {
-  const [queue, setQueue] = useState(MOCK_QUEUE);
+  const [queue, setQueue] = useState<any[]>([]);
+  const [stats, setStats] = useState<any>({ total_revenue: 0, completed_appointments: 0 });
+
+  useEffect(() => {
+    // Busca dados do dashboard
+    api.get('/dashboard/daily-overview').then(res => {
+      setStats(res.data);
+    }).catch(console.error);
+
+    // Busca fila
+    api.get('/walkin/live').then(res => {
+      setQueue(res.data);
+    }).catch(console.error);
+  }, []);
+
   return (
     <>
       <div className={styles.header}>
@@ -23,11 +32,11 @@ const Overview = ({ user }: { user: any }) => {
       <div className={styles.statsGrid}>
         <div className={styles.statCard}>
           <div className={styles.statTitle}>Faturamento (Hoje)</div>
-          <div className={`${styles.statValue} ${styles.statHighlight}`}>R$ 840,00</div>
+          <div className={`${styles.statValue} ${styles.statHighlight}`}>R$ {stats.total_revenue.toFixed(2)}</div>
         </div>
         <div className={styles.statCard}>
           <div className={styles.statTitle}>Cortes Finalizados</div>
-          <div className={styles.statValue}>12</div>
+          <div className={styles.statValue}>{stats.completed_appointments}</div>
         </div>
       </div>
       <div className={styles.queueSection}>
@@ -36,15 +45,12 @@ const Overview = ({ user }: { user: any }) => {
           <p style={{ color: 'var(--color-text-secondary)' }}>Nenhum cliente na fila.</p>
         ) : (
           <div className={styles.queueList}>
-            {queue.map((item) => (
-              <div key={item.id} className={styles.queueItem}>
+            {queue.map((item: any, idx: number) => (
+              <div key={idx} className={styles.queueItem}>
                 <div className={styles.queueInfo}>
-                  <h4>{item.name}</h4>
-                  <p>{item.service} • Esperando há {item.waitTime}</p>
+                  <h4>{item.customer_name_masked}</h4>
+                  <p>Posição {item.position} • Entrou às {new Date(item.joined_at).toLocaleTimeString()}</p>
                 </div>
-                <button className={styles.queueAction} onClick={() => setQueue(queue.filter(q => q.id !== item.id))}>
-                  Atender Agora
-                </button>
               </div>
             ))}
           </div>

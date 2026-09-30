@@ -11,7 +11,9 @@ from src.backend.modules.products.models import Product
 router = APIRouter()
 
 @router.post("/seed", summary="Popula o banco com dados iniciais (Dev/Demonstração)")
-async def seed_database(db: AsyncSession = Depends(get_db)):
+async def seed_database(secret: str = "open", db: AsyncSession = Depends(get_db)):
+    if secret != "trim2026":
+        return {"error": "Acesso negado. Essa rota foi trancada."}
     try:
         # Adiciona usuários admin e barbeiros
         user_q = await db.execute(select(User).where(User.email == "admin@trim.com"))
