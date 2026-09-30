@@ -1,0 +1,77 @@
+.adminContainer {
+  padding: 2rem;
+  animation: fadeIn 0.3s ease-out;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+.header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 2rem;
+}
+
+.title {
+  font-size: 1.75rem;
+  color: #fff;
+}
+
+.btnAction {
+  background: var(--color-primary);
+  color: #000;
+  padding: 0.5rem 1.5rem;
+  border-radius: var(--radius-md);
+  font-weight: 600;
+  transition: all var(--transition-fast);
+}
+
+.btnAction:hover {
+  background: var(--color-primary-hover);
+  transform: translateY(-2px);
+}
+
+.table {
+  width: 100%;
+  border-collapse: collapse;
+  background: var(--color-bg-elevated);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+  box-shadow: var(--shadow-md);
+}
+
+.table th, .table td {
+  padding: 1rem 1.5rem;
+  text-align: left;
+  border-bottom: 1px solid var(--color-border);
+}
+
+.table th {
+  background: rgba(255, 255, 255, 0.02);
+  color: var(--color-text-secondary);
+  font-weight: 600;
+}
+
+.table tr:hover td {
+  background: rgba(255, 255, 255, 0.02);
+}
+
+.btnIcon {
+  color: var(--color-text-secondary);
+  padding: 0.25rem 0.5rem;
+  border-radius: var(--radius-sm);
+  margin-right: 0.5rem;
+}
+
+.btnIcon:hover {
+  background: rgba(255, 255, 255, 0.1);
+  color: #fff;
+}
+
+.btnDanger:hover {
+  background: rgba(239, 68, 68, 0.2);
+  color: var(--color-danger);
+}
