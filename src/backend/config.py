@@ -25,7 +25,28 @@ class Settings(BaseSettings):
 
     # ── Database ─────────────────────────────────────────
     database_url: str = "postgresql+asyncpg://postgres:postgres@localhost:5432/trim_db"
-    database_url_sync: str = "postgresql+psycopg2://postgres:postgres@localhost:5432/trim_db"
+
+    @property
+    def database_url_async(self) -> str:
+        """Deriva a URL assíncrona a partir da URL padrão fornecida pelo Railway."""
+        url = self.database_url
+        if url.startswith("postgres://"):
+            url = url.replace("postgres://", "postgresql+asyncpg://", 1)
+        elif url.startswith("postgresql://"):
+            url = url.replace("postgresql://", "postgresql+asyncpg://", 1)
+        return url
+
+    @property
+    def database_url_sync(self) -> str:
+        """Deriva a URL síncrona a partir da URL padrão fornecida pelo Railway."""
+        url = self.database_url
+        if url.startswith("postgres://"):
+            url = url.replace("postgres://", "postgresql+psycopg2://", 1)
+        elif url.startswith("postgresql://"):
+            url = url.replace("postgresql://", "postgresql+psycopg2://", 1)
+        elif url.startswith("postgresql+asyncpg://"):
+            url = url.replace("postgresql+asyncpg://", "postgresql+psycopg2://", 1)
+        return url
 
     # ── JWT / Auth ───────────────────────────────────────
     secret_key: str = "dev-secret-change-in-production"

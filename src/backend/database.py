@@ -11,7 +11,7 @@ from src.backend.config import settings
 
 # ── Engine assíncrono ────────────────────────────────────
 engine = create_async_engine(
-    settings.database_url,
+    settings.database_url_async,
     echo=settings.debug,
     future=True,
 )
