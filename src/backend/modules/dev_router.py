@@ -148,13 +148,18 @@ async def seed_database(secret: str = "open", db: AsyncSession = Depends(get_db)
                 db.add_all([item1, item2])
                 await db.flush()
 
-        # Adiciona Despesas (Expenses)
-        from src.backend.modules.expenses.models import Expense, ExpenseCategory, PaymentMethod
+        # Adiciona Categorias de Despesa e Despesas (Expenses)
+        from src.backend.modules.expenses.models import Expense, ExpenseCategory
+        from datetime import date
         exp_q = await db.execute(select(Expense))
         if not exp_q.scalars().first():
-            db_admin = (await db.execute(select(User).where(User.email == "admin@trim.com"))).scalars().first()
-            e1 = Expense(description="Conta de Luz", amount=350.00, category=ExpenseCategory.UTILITIES, payment_method=PaymentMethod.PIX, user_id=db_admin.id)
-            e2 = Expense(description="Produtos de Limpeza", amount=120.00, category=ExpenseCategory.SUPPLIES, payment_method=PaymentMethod.CREDIT_CARD, user_id=db_admin.id)
+            cat1 = ExpenseCategory(name="Luz e Água")
+            cat2 = ExpenseCategory(name="Insumos")
+            db.add_all([cat1, cat2])
+            await db.flush()
+
+            e1 = Expense(description="Conta de Luz", amount=350.00, category_id=cat1.id, payment_date=date.today())
+            e2 = Expense(description="Produtos de Limpeza", amount=120.00, category_id=cat2.id, payment_date=date.today())
             db.add_all([e1, e2])
             await db.flush()
 
@@ -163,40 +168,45 @@ async def seed_database(secret: str = "open", db: AsyncSession = Depends(get_db)
         gal_q = await db.execute(select(GalleryItem))
         if not gal_q.scalars().first():
             db_barber = (await db.execute(select(Barber))).scalars().first()
-            g1 = GalleryItem(image_url="https://images.unsplash.com/photo-1599351431202-1e0f0137899a?auto=format&fit=crop&q=80&w=400", title="Fade Clássico", tag=TagEnum.FADE, barber_id=db_barber.id)
-            g2 = GalleryItem(image_url="https://images.unsplash.com/photo-1621605815971-fbc98d665033?auto=format&fit=crop&q=80&w=400", title="Barba Lenhador", tag=TagEnum.BEARD, barber_id=db_barber.id)
-            db.add_all([g1, g2])
-            await db.flush()
+            if db_barber:
+                g1 = GalleryItem(image_url="https://images.unsplash.com/photo-1599351431202-1e0f0137899a?auto=format&fit=crop&q=80&w=400", title="Fade Clássico", tag=TagEnum.FADE, barber_id=db_barber.id)
+                g2 = GalleryItem(image_url="https://images.unsplash.com/photo-1621605815971-fbc98d665033?auto=format&fit=crop&q=80&w=400", title="Barba Lenhador", tag=TagEnum.BEARD, barber_id=db_barber.id)
+                db.add_all([g1, g2])
+                await db.flush()
 
         # Adiciona Fila Walk-in
         from src.backend.modules.walkin.models import WalkinQueue, WalkinStatus
         wq_q = await db.execute(select(WalkinQueue))
         if not wq_q.scalars().first():
             db_service = (await db.execute(select(Service))).scalars().first()
-            w1 = WalkinQueue(customer_name="Marcos Antonio", service_id=db_service.id, status=WalkinStatus.WAITING)
-            w2 = WalkinQueue(customer_name="Felipe Costa", service_id=db_service.id, status=WalkinStatus.IN_SERVICE)
-            db.add_all([w1, w2])
-            await db.flush()
+            if db_service:
+                w1 = WalkinQueue(customer_name="Marcos Antonio", service_id=db_service.id, status=WalkinStatus.WAITING)
+                w2 = WalkinQueue(customer_name="Felipe Costa", service_id=db_service.id, status=WalkinStatus.IN_SERVICE)
+                db.add_all([w1, w2])
+                await db.flush()
 
         # Adiciona Pontos de Fidelidade
         from src.backend.modules.loyalty.models import LoyaltyPoints
         loy_q = await db.execute(select(LoyaltyPoints))
         if not loy_q.scalars().first():
             db_client = (await db.execute(select(User).where(User.email == "cliente@trim.com"))).scalars().first()
-            l1 = LoyaltyPoints(user_id=db_client.id, points_balance=150, total_earned=150)
-            db.add(l1)
-            await db.flush()
+            if db_client:
+                l1 = LoyaltyPoints(user_id=db_client.id, points_balance=150, total_earned=150)
+                db.add(l1)
+                await db.flush()
 
-        # Receitas Financeiras (Finance)
-        from src.backend.modules.finance.models import Revenue, RevenueType
-        rev_q = await db.execute(select(Revenue))
+        # Transações Financeiras (Finance)
+        from src.backend.modules.finance.models import Transaction, TransactionType, PaymentMethod
+        import uuid
+        rev_q = await db.execute(select(Transaction))
         if not rev_q.scalars().first():
             db_admin = (await db.execute(select(User).where(User.email == "admin@trim.com"))).scalars().first()
-            r1 = Revenue(amount=75.0, type=RevenueType.SERVICE, payment_method=PaymentMethod.PIX, description="Corte + Barba do João", registered_by=db_admin.id)
-            r2 = Revenue(amount=55.0, type=RevenueType.PRODUCT, payment_method=PaymentMethod.CREDIT_CARD, description="Pomada vendida balcão", registered_by=db_admin.id)
-            r3 = Revenue(amount=120.0, type=RevenueType.SERVICE, payment_method=PaymentMethod.PIX, description="Platinado Lucas", registered_by=db_admin.id)
-            db.add_all([r1, r2, r3])
-            await db.flush()
+            if db_admin:
+                r1 = Transaction(amount=75.0, type=TransactionType.APPOINTMENT, payment_method=PaymentMethod.PIX, reference_id=uuid.uuid4(), user_id=db_admin.id)
+                r2 = Transaction(amount=55.0, type=TransactionType.PRODUCT_SALE, payment_method=PaymentMethod.CREDIT_CARD, reference_id=uuid.uuid4(), user_id=db_admin.id)
+                r3 = Transaction(amount=120.0, type=TransactionType.APPOINTMENT, payment_method=PaymentMethod.PIX, reference_id=uuid.uuid4(), user_id=db_admin.id)
+                db.add_all([r1, r2, r3])
+                await db.flush()
 
         await db.commit()
         return {"message": "Banco populado MUDOU DE PATAMAR! Todas as tabelas têm dados!"}
