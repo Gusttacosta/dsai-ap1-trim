@@ -14,13 +14,16 @@ router = APIRouter()
 async def seed_database(secret: str = "open", db: AsyncSession = Depends(get_db)):
     if secret != "trim2026":
         return {"error": "Acesso negado. Essa rota foi trancada."}
+    
+    from src.backend.modules.auth.security import get_password_hash
+    from src.backend.modules.auth.models import UserRole
+    from src.backend.modules.barbers.service import BarberService
+
     try:
         # Adiciona usuários admin e barbeiros
         user_q = await db.execute(select(User).where(User.email == "admin@trim.com"))
         admin = user_q.scalars().first()
         if not admin:
-            from src.backend.modules.auth.security import get_password_hash
-            from src.backend.modules.auth.models import UserRole
             admin = User(
                 email="admin@trim.com",
                 hashed_password=get_password_hash("admin123"),
@@ -33,7 +36,6 @@ async def seed_database(secret: str = "open", db: AsyncSession = Depends(get_db)
         # Cria perfil de barbeiro se não existir
         barber_q = await db.execute(select(Barber).where(Barber.user_id == admin.id))
         if not barber_q.scalars().first():
-            from src.backend.modules.barbers.service import BarberService
             b_service = BarberService(db)
             barber = Barber(
                 user_id=admin.id,
