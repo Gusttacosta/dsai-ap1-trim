@@ -1,6 +1,6 @@
 import axios from 'axios';
 
-const API_URL = import.meta.env.VITE_API_URL || 'https://dsai-ap1-trim.up.railway.app/api';
+const API_URL = import.meta.env.VITE_API_URL || 'https://dsai-ap1-trim-backend-production.up.railway.app/api';
 
 export const api = axios.create({
   baseURL: API_URL,
