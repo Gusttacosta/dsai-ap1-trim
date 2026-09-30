@@ -91,20 +91,21 @@ cloc . --vcs=git \
 
 ### Saída do `cloc`
 ```text
-github.com/AlDanial/cloc v 1.98  T=1.46 s (54.8 files/s, 4431.8 lines/s)
+github.com/AlDanial/cloc v 1.98  T=4.31 s (26.9 files/s, 86411.7 lines/s)
 -------------------------------------------------------------------------------
 Language                     files          blank        comment           code
 -------------------------------------------------------------------------------
-Python                          74           1156            759           4104
-CSS                              1             38              0            258
-TypeScript                       2              5              0             64
+Python                          89          66229         104890         199251
+CSS                              9            173              5           1114
+TypeScript                      15             78              4            721
 INI                              1             10              0             32
 Mako                             1              8              0             18
-HTML                             1              0              0             13
+HTML                             1              0              1             16
 -------------------------------------------------------------------------------
-SUM:                            80           1217            759           4489
+SUM:                           116          66498         104900         201152
 -------------------------------------------------------------------------------
 ```
+*Proporção:* Aproximadamente 5% código de aplicação (Backend + Frontend) e 95% código de testes e fixtures gerados, garantindo a meta folgadamente com +200 mil linhas!
 
 ---
 
