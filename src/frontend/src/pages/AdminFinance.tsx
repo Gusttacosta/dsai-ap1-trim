@@ -78,5 +78,3 @@ const AdminFinance = () => {
 };
 
 export default AdminFinance;
-
-export default AdminFinance;
