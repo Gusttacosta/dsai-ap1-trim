@@ -16,7 +16,7 @@ const Login = () => {
     
     try {
       if (isRegister) {
-        await api.post('/auth/register', { email, password, full_name: name, role: 'ADMIN' });
+        await api.post('/auth/register', { email, password, full_name: name });
         setIsRegister(false);
         setError('Conta criada! Faça o login.');
       } else {
@@ -25,7 +25,17 @@ const Login = () => {
         navigate('/admin');
       }
     } catch (err: any) {
-      setError(err.response?.data?.detail || 'Erro na autenticação');
+      if (err.response?.status === 422) {
+        // Pydantic returns an array of validation errors in 'detail'
+        const details = err.response.data.detail;
+        if (Array.isArray(details)) {
+          setError(details.map((d: any) => d.msg).join(' | '));
+        } else {
+          setError('Erro de preenchimento. Verifique os dados (A senha exige mínimo 8 chars, 1 número e 1 letra).');
+        }
+      } else {
+        setError(err.response?.data?.detail || 'Erro na autenticação');
+      }
     }
   };
 
