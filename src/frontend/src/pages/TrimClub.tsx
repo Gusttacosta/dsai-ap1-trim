@@ -60,3 +60,4 @@ const TrimClub = () => {
 };
 
 export default TrimClub;
+

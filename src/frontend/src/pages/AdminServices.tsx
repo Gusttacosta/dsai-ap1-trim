@@ -30,7 +30,7 @@ const AdminServices = () => {
             <tr key={s.id}>
               <td style={{ color: '#fff', fontWeight: 500 }}>{s.name}</td>
               <td>{s.duration_minutes} min</td>
-              <td>{s.price.toFixed(2)}</td>
+              <td>{Number(s.price).toFixed(2)}</td>
               <td>
                 <button className={styles.btnIcon}>Editar</button>
                 <button className={`${styles.btnIcon} ${styles.btnDanger}`}>Excluir</button>
@@ -44,3 +44,4 @@ const AdminServices = () => {
 };
 
 export default AdminServices;
+

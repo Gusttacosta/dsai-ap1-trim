@@ -32,7 +32,7 @@ const Overview = ({ user }: { user: any }) => {
       <div className={styles.statsGrid}>
         <div className={styles.statCard}>
           <div className={styles.statTitle}>Faturamento (Hoje)</div>
-          <div className={`${styles.statValue} ${styles.statHighlight}`}>R$ {stats.total_revenue.toFixed(2)}</div>
+          <div className={`${styles.statValue} ${styles.statHighlight}`}>R$ {Number(stats.total_revenue).toFixed(2)}</div>
         </div>
         <div className={styles.statCard}>
           <div className={styles.statTitle}>Cortes Finalizados</div>
@@ -120,3 +120,4 @@ const Dashboard = () => {
 };
 
 export default Dashboard;
+

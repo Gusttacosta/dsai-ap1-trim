@@ -34,7 +34,7 @@ const AdminStore = () => {
               <td style={{ color: p.stock_quantity < 10 ? 'var(--color-danger)' : 'var(--color-success)' }}>
                 {p.stock_quantity} un
               </td>
-              <td>{p.price.toFixed(2)}</td>
+              <td>{Number(p.price).toFixed(2)}</td>
               <td>
                 <button className={styles.btnIcon}>Editar</button>
                 <button className={`${styles.btnIcon} ${styles.btnDanger}`}>Excluir</button>
@@ -48,3 +48,4 @@ const AdminStore = () => {
 };
 
 export default AdminStore;
+

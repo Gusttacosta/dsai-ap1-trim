@@ -28,15 +28,15 @@ const AdminFinance = () => {
       <div style={{ display: 'flex', gap: '2rem', marginBottom: '2rem' }}>
         <div style={{ padding: '1.5rem', background: 'var(--color-bg-card)', borderRadius: '12px', flex: 1, border: '1px solid var(--color-border)' }}>
           <h3 style={{ fontSize: '0.9rem', color: 'var(--color-text-secondary)', marginBottom: '0.5rem' }}>Receita Total (Mês)</h3>
-          <p style={{ fontSize: '1.8rem', fontWeight: 700, color: 'var(--color-success)' }}>R$ {summary.total_revenue.toFixed(2)}</p>
+          <p style={{ fontSize: '1.8rem', fontWeight: 700, color: 'var(--color-success)' }}>R$ {Number(summary.total_revenue).toFixed(2)}</p>
         </div>
         <div style={{ padding: '1.5rem', background: 'var(--color-bg-card)', borderRadius: '12px', flex: 1, border: '1px solid var(--color-border)' }}>
           <h3 style={{ fontSize: '0.9rem', color: 'var(--color-text-secondary)', marginBottom: '0.5rem' }}>Despesas (Mês)</h3>
-          <p style={{ fontSize: '1.8rem', fontWeight: 700, color: 'var(--color-primary)' }}>R$ {summary.total_expenses.toFixed(2)}</p>
+          <p style={{ fontSize: '1.8rem', fontWeight: 700, color: 'var(--color-primary)' }}>R$ {Number(summary.total_expenses).toFixed(2)}</p>
         </div>
         <div style={{ padding: '1.5rem', background: 'var(--color-bg-card)', borderRadius: '12px', flex: 1, border: '1px solid var(--color-border)' }}>
           <h3 style={{ fontSize: '0.9rem', color: 'var(--color-text-secondary)', marginBottom: '0.5rem' }}>Lucro Líquido</h3>
-          <p style={{ fontSize: '1.8rem', fontWeight: 700, color: '#fff' }}>R$ {summary.net_profit.toFixed(2)}</p>
+          <p style={{ fontSize: '1.8rem', fontWeight: 700, color: '#fff' }}>R$ {Number(summary.net_profit).toFixed(2)}</p>
         </div>
       </div>
 
@@ -62,7 +62,7 @@ const AdminFinance = () => {
               <tr key={e.id}>
                 <td style={{ color: '#fff', fontWeight: 500 }}>{e.description}</td>
                 <td>{e.date}</td>
-                <td>{e.amount.toFixed(2)}</td>
+                <td>{Number(e.amount).toFixed(2)}</td>
                 <td style={{ color: 'var(--color-success)' }}>Pago</td>
                 <td>
                   <button className={styles.btnIcon}>Editar</button>
@@ -78,3 +78,4 @@ const AdminFinance = () => {
 };
 
 export default AdminFinance;
+

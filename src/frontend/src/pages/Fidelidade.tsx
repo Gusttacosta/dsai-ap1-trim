@@ -52,3 +52,4 @@ const Fidelidade = () => {
 };
 
 export default Fidelidade;
+

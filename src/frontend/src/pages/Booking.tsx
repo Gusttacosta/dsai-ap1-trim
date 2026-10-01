@@ -99,7 +99,7 @@ const Booking = () => {
             >
               <div className={styles.cardTitle}>{srv.name}</div>
               <div className={styles.cardDesc}>
-                R$ {srv.price.toFixed(2)} • {srv.duration_minutes} min
+                R$ {Number(srv.price).toFixed(2)} • {srv.duration_minutes} min
               </div>
             </div>
           ))}
@@ -133,7 +133,7 @@ const Booking = () => {
             <p><strong>Serviço:</strong> {services.find(s => s.id === selectedService)?.name}</p>
             <p><strong>Data/Hora:</strong> Hoje às {selectedTime}</p>
             <p style={{ color: 'var(--color-primary)', marginTop: '1rem', fontSize: '1.2rem', fontWeight: 'bold' }}>
-              Total: R$ {services.find(s => s.id === selectedService)?.price.toFixed(2)}
+              Total: R$ {Number(services.find(s => s.id === selectedService)?.price || 0).toFixed(2)}
             </p>
           </div>
         </div>
@@ -152,3 +152,4 @@ const Booking = () => {
 };
 
 export default Booking;
+
