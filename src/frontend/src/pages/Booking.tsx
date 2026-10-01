@@ -33,9 +33,13 @@ const Booking = () => {
         });
         alert('Agendamento Confirmado! ✂️');
         navigate('/');
-      } catch (err) {
-        alert('Erro ao agendar. Você precisa estar logado para agendar.');
-        navigate('/login');
+      } catch (err: any) {
+        const errorMsg = err.response?.data?.detail || 'Erro desconhecido.';
+        alert(`Falha no agendamento: ${errorMsg}\n\nVocê precisa estar logado com uma conta de Cliente ativa.`);
+        if (err.response?.status === 401) {
+          localStorage.removeItem('token');
+          navigate('/login');
+        }
       }
     }
   };
