@@ -46,6 +46,10 @@ async def seed_database(secret: str = "open", db: AsyncSession = Depends(get_db)
             )
             db.add(barber)
             await db.flush()
+        
+        # Garante que Admin Barber tenha escala
+        admin_sched = await db.execute(select(WorkSchedule).where(WorkSchedule.barber_id == barber.id))
+        if not admin_sched.scalars().first():
             await b_service._create_default_schedules(barber.id)
         
         await db.commit()
@@ -92,6 +96,10 @@ async def seed_database(secret: str = "open", db: AsyncSession = Depends(get_db)
             barber2 = Barber(user_id=barber2_user.id, bio="Navalha Clássica", commission_rate=50.0)
             db.add(barber2)
             await db.flush()
+            
+        # Garante que Carlos Barber tenha escala
+        carlos_sched = await db.execute(select(WorkSchedule).where(WorkSchedule.barber_id == barber2.id))
+        if not carlos_sched.scalars().first():
             await b_service._create_default_schedules(barber2.id)
 
         for srv in services:
