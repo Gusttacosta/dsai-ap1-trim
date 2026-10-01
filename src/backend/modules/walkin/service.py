@@ -70,9 +70,9 @@ class WalkInService:
         appointment = Appointment(
             client_id=walkin.user_id,
             barber_id=data.barber_id,
-            start_time=now,
-            end_time=now,  # Dummy, o ideal é prever com base na duração, mas no walkin ele já tá lá
-            status=AppointmentStatus.IN_PROGRESS,
+            start_datetime=now,
+            end_datetime=now,  # Dummy, o ideal é prever com base na duração, mas no walkin ele já tá lá
+            status=AppointmentStatus.CONFIRMED,
             total_price=service_price
         )
         self.db.add(appointment)

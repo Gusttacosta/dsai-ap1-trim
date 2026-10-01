@@ -59,7 +59,7 @@ class DashboardService:
     async def get_daily_overview(self, target_date: date) -> DailyOverviewResponse:
         """Visão operacional de um dia específico (por padrão, hoje)."""
         
-        stmt_appointments = select(Appointment.status).where(func.date(Appointment.start_time) == target_date)
+        stmt_appointments = select(Appointment.status).where(func.date(Appointment.start_datetime) == target_date)
         result = await self.db.execute(stmt_appointments)
         statuses = result.scalars().all()
 
@@ -94,8 +94,8 @@ class DashboardService:
         stmt_count = select(func.count(Appointment.id)).where(
             Appointment.barber_id == barber_id,
             Appointment.status == AppointmentStatus.COMPLETED,
-            func.date(Appointment.start_time) >= start_date,
-            func.date(Appointment.start_time) <= end_date
+            func.date(Appointment.start_datetime) >= start_date,
+            func.date(Appointment.start_datetime) <= end_date
         )
         total_appointments = (await self.db.execute(stmt_count)).scalar_one()
 
