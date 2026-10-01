@@ -1,5 +1,5 @@
 import React from 'react';
-import { BrowserRouter, Routes, Route, Link, useNavigate } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, Link, useNavigate, useLocation } from 'react-router-dom';
 import Landing from './pages/Landing';
 import Booking from './pages/Booking';
 import Dashboard from './pages/Dashboard';
@@ -11,10 +11,16 @@ import Login from './pages/Login';
 
 const Navbar = () => {
   const navigate = useNavigate();
-  const isAuthenticated = !!localStorage.getItem('token');
+  const location = useLocation();
+  const [isAuthenticated, setIsAuthenticated] = React.useState(!!localStorage.getItem('token'));
+
+  React.useEffect(() => {
+    setIsAuthenticated(!!localStorage.getItem('token'));
+  }, [location]);
 
   const handleLogout = () => {
     localStorage.removeItem('token');
+    setIsAuthenticated(false);
     navigate('/login');
   };
 
