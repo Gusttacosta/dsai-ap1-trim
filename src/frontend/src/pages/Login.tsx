@@ -22,7 +22,13 @@ const Login = () => {
       } else {
         const response = await api.post('/auth/login', { email, password });
         localStorage.setItem('token', response.data.access_token);
-        navigate('/admin');
+        
+        const role = response.data.user?.role;
+        if (role === 'admin' || role === 'barber') {
+          navigate('/admin');
+        } else {
+          navigate('/');
+        }
       }
     } catch (err: any) {
       if (err.response?.status === 422) {
