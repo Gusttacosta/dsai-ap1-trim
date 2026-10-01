@@ -108,7 +108,7 @@ const Booking = () => {
 
       {/* STEP 3: Horário */}
       {step === 3 && (
-        <div className={styles.grid}>
+        <div className={styles.gridTime}>
           {MOCK_TIMES.map((time) => (
             <div
               key={time}
