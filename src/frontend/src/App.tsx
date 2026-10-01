@@ -1,5 +1,5 @@
 import React from 'react';
-import { BrowserRouter, Routes, Route, Link } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, Link, useNavigate } from 'react-router-dom';
 import Landing from './pages/Landing';
 import Booking from './pages/Booking';
 import Dashboard from './pages/Dashboard';
@@ -9,17 +9,30 @@ import Fidelidade from './pages/Fidelidade';
 
 import Login from './pages/Login';
 
-// Navbar Simples
-const Navbar = () => (
-  <nav style={{ padding: '1rem 2rem', borderBottom: '1px solid var(--color-border)', display: 'flex', gap: '2rem', alignItems: 'center' }}>
-    <Link to="/" style={{ fontWeight: 800, fontSize: '1.5rem' }}>Trim</Link>
-    <Link to="/galeria" style={{ color: 'var(--color-text-secondary)' }}>Galeria</Link>
-    <Link to="/club" style={{ color: 'var(--color-text-secondary)' }}>Trim Club</Link>
-    <Link to="/fidelidade" style={{ color: 'var(--color-text-secondary)' }}>Prêmios</Link>
-    <div style={{ flex: 1 }} />
-    <Link to="/login" style={{ padding: '0.5rem 1rem', background: 'var(--color-primary)', color: '#000', borderRadius: '8px', fontWeight: 'bold' }}>Login / Admin</Link>
-  </nav>
-);
+const Navbar = () => {
+  const navigate = useNavigate();
+  const isAuthenticated = !!localStorage.getItem('token');
+
+  const handleLogout = () => {
+    localStorage.removeItem('token');
+    navigate('/login');
+  };
+
+  return (
+    <nav style={{ padding: '1rem 2rem', borderBottom: '1px solid var(--color-border)', display: 'flex', gap: '2rem', alignItems: 'center' }}>
+      <Link to="/" style={{ fontWeight: 800, fontSize: '1.5rem' }}>Trim</Link>
+      <Link to="/galeria" style={{ color: 'var(--color-text-secondary)' }}>Galeria</Link>
+      <Link to="/club" style={{ color: 'var(--color-text-secondary)' }}>Trim Club</Link>
+      <Link to="/fidelidade" style={{ color: 'var(--color-text-secondary)' }}>Prêmios</Link>
+      <div style={{ flex: 1 }} />
+      {isAuthenticated ? (
+        <button onClick={handleLogout} style={{ padding: '0.5rem 1rem', background: 'transparent', border: '1px solid var(--color-border)', color: '#fff', borderRadius: '8px', fontWeight: 'bold', cursor: 'pointer' }}>Sair</button>
+      ) : (
+        <Link to="/login" style={{ padding: '0.5rem 1rem', background: 'var(--color-primary)', color: '#000', borderRadius: '8px', fontWeight: 'bold' }}>Entrar</Link>
+      )}
+    </nav>
+  );
+};
 
 const App = () => {
   return (
