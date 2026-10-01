@@ -28,8 +28,8 @@ const Booking = () => {
       try {
         await api.post('/appointments', {
           barber_id: selectedBarber,
-          service_id: selectedService,
-          scheduled_time: new Date().toISOString().split('T')[0] + 'T' + selectedTime + ':00'
+          service_ids: [selectedService],
+          start_datetime: new Date().toISOString().split('T')[0] + 'T' + selectedTime + ':00'
         });
         alert('Agendamento Confirmado! ✂️');
         navigate('/');
