@@ -8,7 +8,7 @@ const AdminFinance = () => {
 
   useEffect(() => {
     // Busca dados financeiros reais do backend
-    api.get('/dashboard/financial-summary').then(res => {
+    api.get('/reports/financial-summary').then(res => {
       setSummary(res.data);
       // Aqui idealmente teríamos uma rota de listagem de despesas,
       // mas vamos usar o summary por enquanto para mostrar valores agregados.
@@ -78,4 +78,5 @@ const AdminFinance = () => {
 };
 
 export default AdminFinance;
+
 

@@ -14,12 +14,12 @@ const Overview = ({ user }: { user: any }) => {
 
   useEffect(() => {
     // Busca dados do dashboard
-    api.get('/dashboard/daily-overview').then(res => {
+    api.get('/reports/daily-overview').then(res => {
       setStats(res.data);
     }).catch(console.error);
 
     // Busca fila
-    api.get('/walkin/live').then(res => {
+    api.get('/queue/live').then(res => {
       setQueue(res.data);
     }).catch(console.error);
   }, []);
@@ -120,4 +120,5 @@ const Dashboard = () => {
 };
 
 export default Dashboard;
+
 
