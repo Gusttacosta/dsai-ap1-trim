@@ -51,13 +51,26 @@ async def seed_database(secret: str = "open", db: AsyncSession = Depends(get_db)
 
         # Adiciona Serviços
         srv_q = await db.execute(select(Service))
-        if not srv_q.scalars().first():
+        services = srv_q.scalars().all()
+        if not services:
             s1 = Service(name="Corte Máquina", description="Corte simples na máquina", duration_minutes=30, price=40.0)
             s2 = Service(name="Corte + Barba", description="Pacote completo", duration_minutes=60, price=75.0)
             s3 = Service(name="Platinado", description="Descoloração total", duration_minutes=120, price=120.0)
             s4 = Service(name="Pezinho e Sobrancelha", description="Acabamento", duration_minutes=20, price=25.0)
             db.add_all([s1, s2, s3, s4])
             await db.flush()
+            services = [s1, s2, s3, s4]
+
+        # Link All Services to Admin Barber
+        from src.backend.modules.services.models import BarberServiceAssociation
+        for srv in services:
+            assoc_q = await db.execute(select(BarberServiceAssociation).where(
+                BarberServiceAssociation.barber_id == barber.id,
+                BarberServiceAssociation.service_id == srv.id
+            ))
+            if not assoc_q.scalars().first():
+                db.add(BarberServiceAssociation(barber_id=barber.id, service_id=srv.id))
+        await db.flush()
 
         # Adiciona Barbeiros Extras
         barber2_q = await db.execute(select(User).where(User.email == "carlos@trim.com"))
@@ -74,6 +87,10 @@ async def seed_database(secret: str = "open", db: AsyncSession = Depends(get_db)
             db.add(barber2)
             await db.flush()
             await b_service._create_default_schedules(barber2.id)
+
+            for srv in services:
+                db.add(BarberServiceAssociation(barber_id=barber2.id, service_id=srv.id))
+            await db.flush()
 
         # Adiciona Clientes
         client_q = await db.execute(select(User).where(User.email == "cliente@trim.com"))
