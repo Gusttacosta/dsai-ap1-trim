@@ -37,7 +37,8 @@ async def seed_database(secret: str = "open", db: AsyncSession = Depends(get_db)
 
         # Cria perfil de barbeiro se não existir
         barber_q = await db.execute(select(Barber).where(Barber.user_id == admin.id))
-        if not barber_q.scalars().first():
+        barber = barber_q.scalars().first()
+        if not barber:
             barber = Barber(
                 user_id=admin.id,
                 bio="Especialista Trim",
@@ -73,24 +74,34 @@ async def seed_database(secret: str = "open", db: AsyncSession = Depends(get_db)
         await db.flush()
 
         # Adiciona Barbeiros Extras
-        barber2_q = await db.execute(select(User).where(User.email == "carlos@trim.com"))
-        if not barber2_q.scalars().first():
-            barber_user = User(
+        barber2_user_q = await db.execute(select(User).where(User.email == "carlos@trim.com"))
+        barber2_user = barber2_user_q.scalars().first()
+        if not barber2_user:
+            barber2_user = User(
                 email="carlos@trim.com",
                 hashed_password=get_password_hash("barber123"),
                 full_name="Carlos Santos",
                 role=UserRole.BARBER
             )
-            db.add(barber_user)
+            db.add(barber2_user)
             await db.flush()
-            barber2 = Barber(user_id=barber_user.id, bio="Navalha Clássica", commission_rate=50.0)
+            
+        barber2_q = await db.execute(select(Barber).where(Barber.user_id == barber2_user.id))
+        barber2 = barber2_q.scalars().first()
+        if not barber2:
+            barber2 = Barber(user_id=barber2_user.id, bio="Navalha Clássica", commission_rate=50.0)
             db.add(barber2)
             await db.flush()
             await b_service._create_default_schedules(barber2.id)
 
-            for srv in services:
+        for srv in services:
+            assoc_q = await db.execute(select(BarberServiceAssociation).where(
+                BarberServiceAssociation.barber_id == barber2.id,
+                BarberServiceAssociation.service_id == srv.id
+            ))
+            if not assoc_q.scalars().first():
                 db.add(BarberServiceAssociation(barber_id=barber2.id, service_id=srv.id))
-            await db.flush()
+        await db.flush()
 
         # Adiciona Clientes
         client_q = await db.execute(select(User).where(User.email == "cliente@trim.com"))
