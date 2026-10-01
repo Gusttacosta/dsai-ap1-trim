@@ -213,3 +213,29 @@ async def seed_database(secret: str = "open", db: AsyncSession = Depends(get_db)
     except Exception as e:
         import traceback
         return {"error": str(e), "traceback": traceback.format_exc()}
+
+@router.post("/update_dates")
+async def update_dates(secret: str = "open", db: AsyncSession = Depends(get_db)):
+    """Atualiza as datas de todas as tabelas para HOJE (Útil para a apresentação)."""
+    if secret != "trim2026":
+        return {"error": "Acesso negado."}
+    
+    from sqlalchemy import update, func
+    from src.backend.modules.appointments.models import Appointment
+    from src.backend.modules.finance.models import Transaction, BarberCommission
+    from src.backend.modules.expenses.models import Expense
+    from src.backend.modules.walkin.models import WalkInQueue
+
+    try:
+        await db.execute(update(Appointment).values(start_datetime=func.now(), end_datetime=func.now()))
+        await db.execute(update(Transaction).values(created_at=func.now()))
+        # await db.execute(update(BarberCommission).values(created_at=func.now()))
+        await db.execute(update(Expense).values(payment_date=func.current_date()))
+        await db.execute(update(WalkInQueue).values(joined_at=func.now(), finished_at=func.now()))
+        
+        await db.commit()
+        return {"message": "Datas atualizadas para hoje!"}
+    except Exception as e:
+        import traceback
+        await db.rollback()
+        return {"error": str(e), "traceback": traceback.format_exc()}
