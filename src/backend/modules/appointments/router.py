@@ -61,6 +61,7 @@ async def create_appointment(
         raise HTTPException(status_code=400, detail=str(e))
 
 @router.post("/guest", response_model=AppointmentResponse, status_code=status.HTTP_201_CREATED)
+async def create_guest_appointment(
     data: GuestAppointmentCreateRequest,
     db: AsyncSession = Depends(get_db),
 ):
