@@ -75,19 +75,26 @@ class DashboardService:
         )
         ticket_medio = (await self.db.execute(stmt_ticket)).scalar_one()
 
+        # Faturamento total das transações HOJE
+        stmt_rev = select(func.coalesce(func.sum(Transaction.amount), 0)).where(
+            func.date(Transaction.created_at) == target_date
+        )
+        total_revenue = (await self.db.execute(stmt_rev)).scalar_one()
+
         return DailyOverviewResponse(
             total_appointments=total_appointments,
             completed_appointments=completed,
             no_show_appointments=no_show,
             cancelled_appointments=cancelled,
-            ticket_medio=Decimal(str(round(ticket_medio, 2)))
+            ticket_medio=Decimal(str(round(ticket_medio, 2))),
+            total_revenue=Decimal(str(round(total_revenue, 2)))
         )
 
     async def get_barber_performance(self, barber_id: uuid.UUID, start_date: date, end_date: date) -> BarberPerformanceResponse:
         """Busca o desempenho de um único barbeiro."""
         
         # Nome do barbeiro
-        stmt_name = select(User.name).select_from(Barber).join(User, Barber.user_id == User.id).where(Barber.id == barber_id)
+        stmt_name = select(User.full_name).select_from(Barber).join(User, Barber.user_id == User.id).where(Barber.id == barber_id)
         barber_name = (await self.db.execute(stmt_name)).scalar_one()
 
         # Atendimentos (COMPLETED)
