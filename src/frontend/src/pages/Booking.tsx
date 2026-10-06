@@ -3,53 +3,69 @@ import { useNavigate } from 'react-router-dom';
 import styles from './Booking.module.css';
 import api from '../api';
 
-const MOCK_TIMES = ['09:00', '09:30', '10:00', '11:30', '14:00', '16:30'];
+const ALL_TIMES = ['09:00', '09:30', '10:00', '10:30', '11:00', '11:30', '13:00', '13:30', '14:00', '14:30', '15:00', '15:30', '16:00', '16:30', '17:00', '17:30', '18:00'];
 
 const Booking = () => {
   const navigate = useNavigate();
-  const [step, setStep] = useState(1);
+  const isAuthenticated = !!localStorage.getItem('token');
+  const [step, setStep] = useState(isAuthenticated ? 1 : 0);
+  const [guestName, setGuestName] = useState('');
+  
   const [barbers, setBarbers] = useState<any[]>([]);
   const [services, setServices] = useState<any[]>([]);
   
   const [selectedBarber, setSelectedBarber] = useState('');
   const [selectedService, setSelectedService] = useState('');
   const [selectedTime, setSelectedTime] = useState('');
+  const [availableSlots, setAvailableSlots] = useState<string[]>([]);
 
   useEffect(() => {
-    // Busca Barbeiros e Serviços reais do backend
     api.get('/barbers').then(res => setBarbers(res.data)).catch(console.error);
     api.get('/services').then(res => setServices(res.data)).catch(console.error);
   }, []);
 
+  useEffect(() => {
+    if (step === 3 && selectedBarber && selectedService) {
+      const today = new Date().toISOString().split('T')[0];
+      const service = services.find(s => s.id === selectedService);
+      const duration = service ? service.duration_minutes : 30;
+      
+      api.get(`/appointments/availability?barber_id=${selectedBarber}&target_date=${today}&duration_minutes=${duration}`)
+        .then(res => setAvailableSlots(res.data.available_slots || []))
+        .catch(console.error);
+    }
+  }, [step, selectedBarber, selectedService, services]);
+
   const handleNext = async () => {
     if (step < 4) setStep(step + 1);
     else {
-      // API call to create appointment
       try {
-        await api.post('/appointments', {
+        const payload = {
           barber_id: selectedBarber,
           service_ids: [selectedService],
-          start_datetime: new Date().toISOString().split('T')[0] + 'T' + selectedTime + ':00'
-        });
+          start_datetime: new Date().toISOString().split('T')[0] + 'T' + selectedTime + ':00',
+          ...( !isAuthenticated && { guest_name: guestName } )
+        };
+        
+        const endpoint = isAuthenticated ? '/appointments' : '/appointments/guest';
+        await api.post(endpoint, payload);
+        
         alert('Agendamento Confirmado! ✂️');
         navigate('/');
       } catch (err: any) {
         const errorMsg = err.response?.data?.detail || 'Erro desconhecido.';
-        alert(`Falha no agendamento: ${errorMsg}\n\nVocê precisa estar logado com uma conta de Cliente ativa.`);
-        if (err.response?.status === 401) {
-          localStorage.removeItem('token');
-          navigate('/login');
-        }
+        alert(`Falha no agendamento: ${errorMsg}`);
       }
     }
   };
 
   const handleBack = () => {
-    if (step > 1) setStep(step - 1);
+    if (step > (isAuthenticated ? 1 : 0)) setStep(step - 1);
     else navigate('/');
   };
 
   const isNextDisabled = () => {
+    if (step === 0) return guestName.trim().length < 3;
     if (step === 1) return !selectedBarber;
     if (step === 2) return !selectedService;
     if (step === 3) return !selectedTime;
@@ -64,17 +80,32 @@ const Booking = () => {
       </div>
 
       <div className={styles.stepIndicator}>
-        {[1, 2, 3, 4].map((s) => (
+        {(!isAuthenticated ? [0, 1, 2, 3, 4] : [1, 2, 3, 4]).map((s) => (
           <div
             key={s}
             className={`${styles.step} ${step === s ? styles.active : ''} ${
               step > s ? styles.completed : ''
             }`}
           >
-            {step > s ? '✓' : s}
+            {step > s ? '✓' : (s === 0 ? '📝' : s)}
           </div>
         ))}
       </div>
+
+      {/* STEP 0: Nome do Convidado */}
+      {step === 0 && (
+        <div style={{ textAlign: 'center', maxWidth: '400px', margin: '0 auto' }}>
+          <h3 style={{ fontSize: '1.2rem', marginBottom: '1rem', color: '#fff' }}>Como podemos te chamar?</h3>
+          <input 
+            type="text" 
+            placeholder="Seu nome" 
+            value={guestName} 
+            onChange={e => setGuestName(e.target.value)} 
+            style={{ width: '100%', padding: '0.8rem', borderRadius: '8px', border: '1px solid var(--color-border)', background: '#2c2c2e', color: '#fff', fontSize: '1.1rem', textAlign: 'center' }}
+            autoFocus
+          />
+        </div>
+      )}
 
       {/* STEP 1: Barbeiro */}
       {step === 1 && (
@@ -113,15 +144,20 @@ const Booking = () => {
       {/* STEP 3: Horário */}
       {step === 3 && (
         <div className={styles.gridTime}>
-          {MOCK_TIMES.map((time) => (
-            <div
-              key={time}
-              className={`${styles.card} ${selectedTime === time ? styles.selected : ''}`}
-              onClick={() => setSelectedTime(time)}
-            >
-              <div className={styles.cardTitle}>{time}</div>
-            </div>
-          ))}
+          {ALL_TIMES.map((time) => {
+            const isAvailable = availableSlots.includes(time);
+            return (
+              <div
+                key={time}
+                className={`${styles.card} ${selectedTime === time ? styles.selected : ''} ${!isAvailable ? styles.disabled : ''}`}
+                onClick={() => {
+                  if (isAvailable) setSelectedTime(time);
+                }}
+              >
+                <div className={styles.cardTitle}>{time}</div>
+              </div>
+            );
+          })}
         </div>
       )}
 

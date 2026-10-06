@@ -19,6 +19,7 @@ from src.backend.modules.appointments.schemas import (
     AppointmentResponse,
     AppointmentStatusUpdateRequest,
     AvailabilityResponse,
+    GuestAppointmentCreateRequest,
 )
 from src.backend.modules.appointments.service import AppointmentService
 
@@ -57,6 +58,42 @@ async def create_appointment(
     try:
         return await service.create_appointment(current_user.id, data)
     except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+@router.post("/guest", response_model=AppointmentResponse, status_code=status.HTTP_201_CREATED)
+    data: GuestAppointmentCreateRequest,
+    db: AsyncSession = Depends(get_db),
+):
+    """(Visitante) Cria um agendamento e gera um usuário fantasma."""
+    from src.backend.modules.auth.models import User, UserRole
+    from src.backend.modules.auth.security import get_password_hash
+    
+    # Criar usuário fantasma
+    dummy_email = f"guest_{uuid.uuid4().hex[:8]}@trim.local"
+    new_user = User(
+        email=dummy_email,
+        hashed_password=get_password_hash(uuid.uuid4().hex),
+        full_name=data.guest_name,
+        role=UserRole.CLIENT,
+    )
+    db.add(new_user)
+    await db.flush()
+
+    # Montar request normal
+    app_req = AppointmentCreateRequest(
+        barber_id=data.barber_id,
+        start_datetime=data.start_datetime,
+        service_ids=data.service_ids,
+        notes=f"Visitante: {data.guest_name}"
+    )
+
+    service = AppointmentService(db)
+    try:
+        appointment = await service.create_appointment(new_user.id, app_req)
+        await db.commit()
+        return appointment
+    except ValueError as e:
+        await db.rollback()
         raise HTTPException(status_code=400, detail=str(e))
 
 

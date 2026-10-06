@@ -20,6 +20,10 @@ class AppointmentCreateRequest(BaseModel):
     service_ids: list[uuid.UUID] = Field(..., min_length=1)
     notes: str | None = None
 
+class GuestAppointmentCreateRequest(AppointmentCreateRequest):
+    """Payload para criar um novo agendamento como visitante."""
+    guest_name: str
+
 
 class AppointmentStatusUpdateRequest(BaseModel):
     """Payload para o barbeiro/admin alterar o status."""
