@@ -46,6 +46,14 @@ const App = () => {
     <BrowserRouter>
       <div className="app-container">
         <Routes>
+          <Route path="/admin/login" element={
+            <>
+              <Navbar />
+              <main className="main-content">
+                <LoginAdmin />
+              </main>
+            </>
+          } />
           <Route path="/admin/*" element={<Dashboard />} />
           <Route path="*" element={
             <>
@@ -54,7 +62,6 @@ const App = () => {
                 <Routes>
                   <Route path="/" element={<Landing />} />
                   <Route path="/login" element={<Login />} />
-                  <Route path="/admin/login" element={<LoginAdmin />} />
                   <Route path="/agenda" element={<Booking />} />
                   <Route path="/galeria" element={<Gallery />} />
                   <Route path="/club" element={<TrimClub />} />
