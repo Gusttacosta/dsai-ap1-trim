@@ -55,7 +55,6 @@ const Overview = ({ user }: { user: any }) => {
           <div className={styles.statValue}>{stats.completed_appointments}</div>
         </div>
       </div>
-      </div>
       
       {user.role === 'admin' && (
         <div className={styles.queueSection}>
