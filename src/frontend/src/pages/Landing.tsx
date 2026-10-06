@@ -17,7 +17,7 @@ const Landing = () => {
           <Link to="/agenda" className={styles.btnPrimary}>
             Agendar Horário
           </Link>
-          <Link to="/admin" className={styles.btnSecondary}>
+          <Link to="/admin/login" className={styles.btnSecondary}>
             Sou Barbeiro
           </Link>
         </div>
