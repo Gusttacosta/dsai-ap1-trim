@@ -42,7 +42,7 @@ class AppointmentService:
         """Verifica se existe agendamento PENDING ou CONFIRMED sobrepondo o período desejado."""
         stmt = select(Appointment.id).where(
             Appointment.barber_id == barber_id,
-            Appointment.status.in_([AppointmentStatus.PENDING, AppointmentStatus.CONFIRMED]),
+            Appointment.status.in_([AppointmentStatus.PENDING, AppointmentStatus.CONFIRMED, AppointmentStatus.COMPLETED]),
             # A sobreposição ocorre se: (A_start < B_end) E (A_end > B_start)
             Appointment.start_datetime < end_dt,
             Appointment.end_datetime > start_dt
@@ -77,7 +77,7 @@ class AppointmentService:
         
         stmt = select(Appointment.start_datetime, Appointment.end_datetime).where(
             Appointment.barber_id == barber_id,
-            Appointment.status.in_([AppointmentStatus.PENDING, AppointmentStatus.CONFIRMED]),
+            Appointment.status.in_([AppointmentStatus.PENDING, AppointmentStatus.CONFIRMED, AppointmentStatus.COMPLETED]),
             Appointment.start_datetime >= start_of_day,
             Appointment.start_datetime <= end_of_day
         )
