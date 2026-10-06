@@ -87,7 +87,7 @@ const Overview = ({ user }: { user: any }) => {
                 <div key={item.id} className={styles.queueItem} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                   <div className={styles.queueInfo}>
                     <h4>{item.notes ? item.notes : 'Cliente'}</h4>
-                    <p>{new Date(item.start_datetime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} • {item.status}</p>
+                    <p>{item.start_datetime.substring(11, 16)} • {item.status}</p>
                   </div>
                   {item.status !== 'completed' && item.status !== 'cancelled' && (
                     <button 
