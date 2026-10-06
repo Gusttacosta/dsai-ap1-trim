@@ -8,6 +8,7 @@ import TrimClub from './pages/TrimClub';
 import Fidelidade from './pages/Fidelidade';
 
 import Login from './pages/Login';
+import LoginAdmin from './pages/LoginAdmin';
 
 const Navbar = () => {
   const navigate = useNavigate();
@@ -53,6 +54,7 @@ const App = () => {
                 <Routes>
                   <Route path="/" element={<Landing />} />
                   <Route path="/login" element={<Login />} />
+                  <Route path="/admin/login" element={<LoginAdmin />} />
                   <Route path="/agenda" element={<Booking />} />
                   <Route path="/galeria" element={<Gallery />} />
                   <Route path="/club" element={<TrimClub />} />

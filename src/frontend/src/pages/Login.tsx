@@ -21,14 +21,15 @@ const Login = () => {
         setError('Conta criada! Faça o login.');
       } else {
         const response = await api.post('/auth/login', { email, password });
-        localStorage.setItem('token', response.data.access_token);
         
         const role = response.data.user?.role;
         if (role === 'admin' || role === 'barber') {
-          navigate('/admin');
-        } else {
-          navigate('/');
+          setError('Sua conta é de profissional. Use a página de acesso profissional.');
+          return;
         }
+
+        localStorage.setItem('token', response.data.access_token);
+        navigate('/');
       }
     } catch (err: any) {
       if (err.response?.status === 422) {
@@ -47,7 +48,7 @@ const Login = () => {
 
   return (
     <div style={{ maxWidth: '400px', margin: '4rem auto', padding: '2rem', background: '#1c1c1e', borderRadius: '12px' }}>
-      <h2>{isRegister ? 'Criar Conta' : 'Acesso Restrito'}</h2>
+      <h2>{isRegister ? 'Criar Conta' : 'Acesso do Cliente'}</h2>
       {error && <p style={{ color: 'var(--color-primary)', marginBottom: '1rem' }}>{error}</p>}
       
       <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>

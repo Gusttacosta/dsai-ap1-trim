@@ -72,7 +72,7 @@ const Dashboard = () => {
         setUser(response.data);
       } catch (err) {
         localStorage.removeItem('token');
-        navigate('/login');
+        navigate('/admin/login');
       }
     };
     fetchUser();
