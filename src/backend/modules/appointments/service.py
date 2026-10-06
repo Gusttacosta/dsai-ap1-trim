@@ -198,6 +198,33 @@ class AppointmentService:
         if not appointment:
             return None
 
+        if new_status == AppointmentStatus.COMPLETED and appointment.status != AppointmentStatus.COMPLETED:
+            from src.backend.modules.finance.models import Transaction, TransactionType, PaymentMethod, BarberCommission
+            from src.backend.modules.barbers.models import Barber
+            
+            # Cria a transação de faturamento
+            transaction = Transaction(
+                type=TransactionType.APPOINTMENT,
+                reference_id=appointment.id,
+                amount=appointment.total_price,
+                payment_method=PaymentMethod.CASH,  # Default para simplificar
+                user_id=appointment.client_id
+            )
+            self.db.add(transaction)
+            await self.db.flush()
+
+            # Calcula e cria a comissão do barbeiro
+            stmt_b = select(Barber.commission_rate).where(Barber.id == appointment.barber_id)
+            rate = (await self.db.execute(stmt_b)).scalar_one()
+
+            comm = BarberCommission(
+                barber_id=appointment.barber_id,
+                transaction_id=transaction.id,
+                amount=float(appointment.total_price) * (float(rate) / 100.0),
+                is_paid=False
+            )
+            self.db.add(comm)
+
         appointment.status = new_status
         await self.db.commit()
         await self.db.refresh(appointment)
