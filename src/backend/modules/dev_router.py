@@ -4,7 +4,7 @@ from sqlalchemy.future import select
 
 from src.backend.database import get_db
 from src.backend.modules.auth.models import User
-from src.backend.modules.barbers.models import Barber
+from src.backend.modules.barbers.models import Barber, WorkSchedule
 from src.backend.modules.services.models import Service
 from src.backend.modules.products.models import Product
 
