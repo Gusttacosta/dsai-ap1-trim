@@ -10,6 +10,7 @@ import AdminNotifications from './AdminNotifications';
 
 const Overview = ({ user }: { user: any }) => {
   const [queue, setQueue] = useState<any[]>([]);
+  const [appointments, setAppointments] = useState<any[]>([]);
   const [stats, setStats] = useState<any>({ total_revenue: 0, completed_appointments: 0 });
 
   useEffect(() => {
@@ -27,7 +28,14 @@ const Overview = ({ user }: { user: any }) => {
       }).catch(console.error);
     } else if (user.role === 'barber') {
       api.get('/reports/me').then(res => {
-        setStats({ total_revenue: res.data.total_revenue, completed_appointments: res.data.completed_appointments });
+        setStats({ 
+          total_revenue: res.data.total_revenue_generated, 
+          completed_appointments: res.data.total_appointments 
+        });
+      }).catch(console.error);
+
+      api.get('/appointments/barber/me').then(res => {
+        setAppointments(res.data);
       }).catch(console.error);
     }
   }, [user]);
@@ -47,23 +55,62 @@ const Overview = ({ user }: { user: any }) => {
           <div className={styles.statValue}>{stats.completed_appointments}</div>
         </div>
       </div>
-      <div className={styles.queueSection}>
-        <h3 className={styles.queueTitle}>Fila de Espera (Ao Vivo)</h3>
-        {queue.length === 0 ? (
-          <p style={{ color: 'var(--color-text-secondary)' }}>Nenhum cliente na fila.</p>
-        ) : (
-          <div className={styles.queueList}>
-            {queue.map((item: any, idx: number) => (
-              <div key={idx} className={styles.queueItem}>
-                <div className={styles.queueInfo}>
-                  <h4>{item.customer_name_masked}</h4>
-                  <p>Posição {item.position} • Entrou às {new Date(item.joined_at).toLocaleTimeString()}</p>
-                </div>
-              </div>
-            ))}
-          </div>
-        )}
       </div>
+      
+      {user.role === 'admin' && (
+        <div className={styles.queueSection}>
+          <h3 className={styles.queueTitle}>Fila de Espera (Ao Vivo)</h3>
+          {queue.length === 0 ? (
+            <p style={{ color: 'var(--color-text-secondary)' }}>Nenhum cliente na fila.</p>
+          ) : (
+            <div className={styles.queueList}>
+              {queue.map((item: any, idx: number) => (
+                <div key={idx} className={styles.queueItem}>
+                  <div className={styles.queueInfo}>
+                    <h4>{item.customer_name_masked}</h4>
+                    <p>Posição {item.position} • Entrou às {new Date(item.joined_at).toLocaleTimeString()}</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
+      {user.role === 'barber' && (
+        <div className={styles.queueSection}>
+          <h3 className={styles.queueTitle}>Meus Agendamentos (Hoje)</h3>
+          {appointments.length === 0 ? (
+            <p style={{ color: 'var(--color-text-secondary)' }}>Nenhum agendamento para hoje.</p>
+          ) : (
+            <div className={styles.queueList}>
+              {appointments.filter((a: any) => new Date(a.start_datetime).toDateString() === new Date().toDateString()).map((item: any) => (
+                <div key={item.id} className={styles.queueItem} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <div className={styles.queueInfo}>
+                    <h4>{item.notes ? item.notes : 'Cliente'}</h4>
+                    <p>{new Date(item.start_datetime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} • {item.status}</p>
+                  </div>
+                  {item.status !== 'completed' && item.status !== 'cancelled' && (
+                    <button 
+                      onClick={() => {
+                        api.put(`/appointments/${item.id}/status`, { status: "completed" })
+                          .then(() => {
+                            setAppointments(prev => prev.map(a => a.id === item.id ? { ...a, status: 'completed' } : a));
+                            setStats((s: any) => ({ ...s, completed_appointments: s.completed_appointments + 1, total_revenue: s.total_revenue + Number(item.total_price) }));
+                          })
+                          .catch(console.error);
+                      }}
+                      style={{ padding: '0.5rem 1rem', background: 'var(--color-primary)', color: '#000', borderRadius: '8px', fontWeight: 'bold', border: 'none', cursor: 'pointer' }}
+                    >
+                      Finalizar
+                    </button>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
     </>
   );
 }
