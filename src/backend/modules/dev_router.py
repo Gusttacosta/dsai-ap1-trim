@@ -244,6 +244,34 @@ async def seed_database(secret: str = "open", db: AsyncSession = Depends(get_db)
                 db.add_all([r1, r2, r3])
                 await db.flush()
 
+        # Planos de Assinatura (Trim Club)
+        from src.backend.modules.subscriptions.models import SubscriptionPlan
+        plan_q = await db.execute(select(SubscriptionPlan))
+        if not plan_q.scalars().first():
+            plan1 = SubscriptionPlan(
+                name="Básico", 
+                description="2 Cortes no mês, Bebida cortesia, Cashback de 5%", 
+                price=80.0, 
+                billing_cycle="MONTHLY", 
+                is_active=True
+            )
+            plan2 = SubscriptionPlan(
+                name="Executivo", 
+                description="Cortes Ilimitados, Barba a cada 15 dias, Bebida premium cortesia, Cashback de 10%, Prioridade na Fila Walk-in", 
+                price=150.0, 
+                billing_cycle="MONTHLY", 
+                is_active=True
+            )
+            plan3 = SubscriptionPlan(
+                name="Barba & Cabelo", 
+                description="2 Cortes no mês, 2 Barbas no mês, Bebida cortesia, Sorteios exclusivos", 
+                price=120.0, 
+                billing_cycle="MONTHLY", 
+                is_active=True
+            )
+            db.add_all([plan1, plan2, plan3])
+            await db.flush()
+
         await db.commit()
         return {"message": "Banco populado MUDOU DE PATAMAR! Todas as tabelas têm dados!"}
     except Exception as e:
