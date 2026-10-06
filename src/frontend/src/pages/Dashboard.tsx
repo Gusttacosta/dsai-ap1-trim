@@ -13,16 +13,24 @@ const Overview = ({ user }: { user: any }) => {
   const [stats, setStats] = useState<any>({ total_revenue: 0, completed_appointments: 0 });
 
   useEffect(() => {
-    // Busca dados do dashboard
-    api.get('/reports/daily-overview').then(res => {
-      setStats(res.data);
-    }).catch(console.error);
+    if (!user) return;
+    
+    if (user.role === 'admin') {
+      // Busca dados do dashboard
+      api.get('/reports/daily-overview').then(res => {
+        setStats(res.data);
+      }).catch(console.error);
 
-    // Busca fila
-    api.get('/queue/live').then(res => {
-      setQueue(res.data);
-    }).catch(console.error);
-  }, []);
+      // Busca fila
+      api.get('/queue/live').then(res => {
+        setQueue(res.data);
+      }).catch(console.error);
+    } else if (user.role === 'barber') {
+      api.get('/reports/me').then(res => {
+        setStats({ total_revenue: res.data.total_revenue, completed_appointments: res.data.completed_appointments });
+      }).catch(console.error);
+    }
+  }, [user]);
 
   return (
     <>
@@ -97,10 +105,14 @@ const Dashboard = () => {
           Trim Admin
         </div>
         <Link to="/admin" className={getNavClass('/admin')}>Painel Principal</Link>
-        <Link to="/admin/loja" className={getNavClass('/admin/loja')}>Loja & Estoque</Link>
-        <Link to="/admin/servicos" className={getNavClass('/admin/servicos')}>Serviços</Link>
-        <Link to="/admin/financeiro" className={getNavClass('/admin/financeiro')}>Financeiro</Link>
-        <Link to="/admin/notificacoes" className={getNavClass('/admin/notificacoes')}>Notificações</Link>
+        {user.role === 'admin' && (
+          <>
+            <Link to="/admin/loja" className={getNavClass('/admin/loja')}>Loja & Estoque</Link>
+            <Link to="/admin/servicos" className={getNavClass('/admin/servicos')}>Serviços</Link>
+            <Link to="/admin/financeiro" className={getNavClass('/admin/financeiro')}>Financeiro</Link>
+            <Link to="/admin/notificacoes" className={getNavClass('/admin/notificacoes')}>Notificações</Link>
+          </>
+        )}
         <div style={{ flex: 1 }} />
         <button onClick={handleLogout} style={{ padding: '1rem', background: 'transparent', border: '1px solid var(--color-border)', color: '#fff', cursor: 'pointer', borderRadius: '8px' }}>Sair</button>
       </div>
@@ -109,10 +121,14 @@ const Dashboard = () => {
       <div className={styles.mainArea}>
         <Routes>
           <Route path="/" element={<Overview user={user} />} />
-          <Route path="/loja" element={<AdminStore />} />
-          <Route path="/servicos" element={<AdminServices />} />
-          <Route path="/financeiro" element={<AdminFinance />} />
-          <Route path="/notificacoes" element={<AdminNotifications />} />
+          {user.role === 'admin' && (
+            <>
+              <Route path="/loja" element={<AdminStore />} />
+              <Route path="/servicos" element={<AdminServices />} />
+              <Route path="/financeiro" element={<AdminFinance />} />
+              <Route path="/notificacoes" element={<AdminNotifications />} />
+            </>
+          )}
         </Routes>
       </div>
     </div>
