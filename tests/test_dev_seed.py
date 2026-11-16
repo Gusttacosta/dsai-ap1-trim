@@ -28,6 +28,8 @@ from src.backend.modules.subscriptions.models import SubscriptionPlan
 
 SECRET = "segredo-de-teste"
 ADMIN_PASSWORD = "senha-admin-de-teste"
+DEMO_PASSWORD = "senha-demo-de-teste"
+DEMO_EMAILS = ["carlos@trim.com", "cliente@trim.com"]
 ROUTES = ["/api/dev/seed", "/api/dev/update_dates"]
 TEST_DATABASE_URL = os.getenv("TEST_DATABASE_URL")
 
@@ -36,6 +38,7 @@ TEST_DATABASE_URL = os.getenv("TEST_DATABASE_URL")
 def seed_settings(monkeypatch):
     monkeypatch.setattr(settings, "seed_secret", SECRET)
     monkeypatch.setattr(settings, "seed_admin_password", ADMIN_PASSWORD)
+    monkeypatch.setattr(settings, "seed_demo_password", DEMO_PASSWORD)
     yield
     app.dependency_overrides.clear()
 
@@ -166,6 +169,12 @@ async def db_sessionmaker():
         await admin_engine.dispose()
 
 
+async def demo_hashes(sessionmaker):
+    async with sessionmaker() as session:
+        users = (await session.execute(select(User).where(User.email.in_(DEMO_EMAILS)))).scalars().all()
+    return {u.email: u.hashed_password for u in users}
+
+
 async def count(sessionmaker, model):
     async with sessionmaker() as session:
         return (await session.execute(select(func.count()).select_from(model))).scalar_one()
@@ -190,6 +199,23 @@ async def test_seed_populates_new_database(client, db_sessionmaker):
     }
     assert verify_password(ADMIN_PASSWORD, admin.hashed_password)
     assert await count(db_sessionmaker, User) == 3
+    hashes = await demo_hashes(db_sessionmaker)
+    assert sorted(hashes) == DEMO_EMAILS
+    assert all(verify_password(DEMO_PASSWORD, h) for h in hashes.values())
+
+
+@pytest.mark.asyncio
+async def test_seed_without_demo_password_blocks_demo_login(client, db_sessionmaker, monkeypatch):
+    monkeypatch.setattr(settings, "seed_demo_password", "")
+
+    response = await client.post("/api/dev/seed", headers={"X-Seed-Secret": SECRET})
+
+    assert response.status_code == 200, response.text
+    hashes = await demo_hashes(db_sessionmaker)
+    assert sorted(hashes) == DEMO_EMAILS
+    for h in hashes.values():
+        assert not verify_password("", h)
+        assert not verify_password(DEMO_PASSWORD, h)
 
 
 @pytest.mark.asyncio

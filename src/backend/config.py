@@ -57,6 +57,8 @@ class Settings(BaseSettings):
     # Vazias = rotas de seed desligadas (404) e admin de demonstração não criado.
     seed_secret: str = ""
     seed_admin_password: str = ""
+    # Vazia = barbeiro e cliente de demonstração ficam com senha aleatória (sem login).
+    seed_demo_password: str = ""
 
     # ── CORS ─────────────────────────────────────────────
     cors_origins: str = "http://localhost:5173,http://localhost:3000,https://dsai-ap1-trim-frontend-production.up.railway.app"

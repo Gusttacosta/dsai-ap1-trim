@@ -29,10 +29,10 @@ def require_seed_secret(x_seed_secret: str | None = Header(default=None)) -> Non
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Acesso negado.")
 
 
-def _unusable_password_hash() -> str:
-    """Senha aleatória descartada: o usuário de demonstração existe, mas ninguém entra com ele."""
+def _demo_password_hash() -> str:
+    """Senha de SEED_DEMO_PASSWORD; sem ela, uma aleatória descartada (ninguém entra com o usuário)."""
     from src.backend.modules.auth.security import get_password_hash
-    return get_password_hash(secrets.token_urlsafe(32))
+    return get_password_hash(settings.seed_demo_password or secrets.token_urlsafe(32))
 
 
 async def _link_services(db: AsyncSession, barber_id, services) -> None:
@@ -116,7 +116,7 @@ async def seed_database(db: AsyncSession = Depends(get_db)):
         if not barber2_user:
             barber2_user = User(
                 email="carlos@trim.com",
-                hashed_password=_unusable_password_hash(),
+                hashed_password=_demo_password_hash(),
                 full_name="Carlos Santos",
                 role=UserRole.BARBER
             )
@@ -144,7 +144,7 @@ async def seed_database(db: AsyncSession = Depends(get_db)):
         if not client:
             client = User(
                 email="cliente@trim.com",
-                hashed_password=_unusable_password_hash(),
+                hashed_password=_demo_password_hash(),
                 full_name="João Silva (Cliente)",
                 role=UserRole.CLIENT
             )
