@@ -1,58 +1,98 @@
-from fastapi import APIRouter, Depends
+import logging
+import secrets
+
+from fastapi import APIRouter, Depends, Header, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 
+from src.backend.config import settings
 from src.backend.database import get_db
 from src.backend.modules.auth.models import User
 from src.backend.modules.barbers.models import Barber, WorkSchedule
 from src.backend.modules.services.models import Service
 from src.backend.modules.products.models import Product
 
+logger = logging.getLogger(__name__)
+
 router = APIRouter()
 
-@router.post("/seed", summary="Popula o banco com dados iniciais (Dev/Demonstração)")
-async def seed_database(secret: str = "open", db: AsyncSession = Depends(get_db)):
-    if secret != "trim2026":
-        return {"error": "Acesso negado. Essa rota foi trancada."}
-    
+GENERIC_ERROR = "Não foi possível concluir a operação. Consulte o log do servidor."
+
+
+def require_seed_secret(x_seed_secret: str | None = Header(default=None)) -> None:
+    """Libera as rotas de dev só com SEED_SECRET definida e o cabeçalho X-Seed-Secret correto."""
+    if not settings.seed_secret:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Not Found")
+    if x_seed_secret is None or not secrets.compare_digest(
+        x_seed_secret.encode(), settings.seed_secret.encode()
+    ):
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Acesso negado.")
+
+
+def _unusable_password_hash() -> str:
+    """Senha aleatória descartada: o usuário de demonstração existe, mas ninguém entra com ele."""
+    from src.backend.modules.auth.security import get_password_hash
+    return get_password_hash(secrets.token_urlsafe(32))
+
+
+async def _link_services(db: AsyncSession, barber_id, services) -> None:
+    from src.backend.modules.services.models import BarberServiceAssociation
+    for srv in services:
+        assoc_q = await db.execute(select(BarberServiceAssociation).where(
+            BarberServiceAssociation.barber_id == barber_id,
+            BarberServiceAssociation.service_id == srv.id
+        ))
+        if not assoc_q.scalars().first():
+            db.add(BarberServiceAssociation(barber_id=barber_id, service_id=srv.id))
+    await db.flush()
+
+
+@router.post(
+    "/seed",
+    summary="Popula o banco com dados iniciais (Dev/Demonstração)",
+    dependencies=[Depends(require_seed_secret)],
+)
+async def seed_database(db: AsyncSession = Depends(get_db)):
+    """Roda numa transação só: ou grava tudo, ou nada."""
     from src.backend.modules.auth.security import get_password_hash
     from src.backend.modules.auth.models import UserRole
     from src.backend.modules.barbers.service import BarberService
 
     try:
         b_service = BarberService(db)
-        
-        # Adiciona usuários admin e barbeiros
+
+        # Admin só é criado com SEED_ADMIN_PASSWORD definida
         user_q = await db.execute(select(User).where(User.email == "admin@trim.com"))
         admin = user_q.scalars().first()
-        if not admin:
+        if not admin and settings.seed_admin_password:
             admin = User(
                 email="admin@trim.com",
-                hashed_password=get_password_hash("admin123"),
+                hashed_password=get_password_hash(settings.seed_admin_password),
                 full_name="Gustavo Admin",
                 role=UserRole.ADMIN
             )
             db.add(admin)
             await db.flush()
 
-        # Cria perfil de barbeiro se não existir
-        barber_q = await db.execute(select(Barber).where(Barber.user_id == admin.id))
-        barber = barber_q.scalars().first()
-        if not barber:
-            barber = Barber(
-                user_id=admin.id,
-                bio="Especialista Trim",
-                commission_rate=50.0
-            )
-            db.add(barber)
-            await db.flush()
-        
-        # Garante que Admin Barber tenha escala
-        admin_sched = await db.execute(select(WorkSchedule).where(WorkSchedule.barber_id == barber.id))
-        if not admin_sched.scalars().first():
-            await b_service._create_default_schedules(barber.id)
-        
-        await db.commit()
+        # Cria perfil de barbeiro do admin se não existir
+        barber = None
+        if admin:
+            barber_q = await db.execute(select(Barber).where(Barber.user_id == admin.id))
+            barber = barber_q.scalars().first()
+            if not barber:
+                barber = Barber(
+                    user_id=admin.id,
+                    bio="Especialista Trim",
+                    commission_rate=50.0
+                )
+                db.add(barber)
+                await db.flush()
+
+            # Garante que Admin Barber tenha escala
+            admin_sched = await db.execute(select(WorkSchedule).where(WorkSchedule.barber_id == barber.id))
+            if not admin_sched.scalars().first():
+                await b_service._create_default_schedules(barber.id)
+                await db.flush()
 
         # Adiciona Serviços
         srv_q = await db.execute(select(Service))
@@ -67,15 +107,8 @@ async def seed_database(secret: str = "open", db: AsyncSession = Depends(get_db)
             services = [s1, s2, s3, s4]
 
         # Link All Services to Admin Barber
-        from src.backend.modules.services.models import BarberServiceAssociation
-        for srv in services:
-            assoc_q = await db.execute(select(BarberServiceAssociation).where(
-                BarberServiceAssociation.barber_id == barber.id,
-                BarberServiceAssociation.service_id == srv.id
-            ))
-            if not assoc_q.scalars().first():
-                db.add(BarberServiceAssociation(barber_id=barber.id, service_id=srv.id))
-        await db.flush()
+        if barber:
+            await _link_services(db, barber.id, services)
 
         # Adiciona Barbeiros Extras
         barber2_user_q = await db.execute(select(User).where(User.email == "carlos@trim.com"))
@@ -83,7 +116,7 @@ async def seed_database(secret: str = "open", db: AsyncSession = Depends(get_db)
         if not barber2_user:
             barber2_user = User(
                 email="carlos@trim.com",
-                hashed_password=get_password_hash("barber123"),
+                hashed_password=_unusable_password_hash(),
                 full_name="Carlos Santos",
                 role=UserRole.BARBER
             )
@@ -101,15 +134,9 @@ async def seed_database(secret: str = "open", db: AsyncSession = Depends(get_db)
         carlos_sched = await db.execute(select(WorkSchedule).where(WorkSchedule.barber_id == barber2.id))
         if not carlos_sched.scalars().first():
             await b_service._create_default_schedules(barber2.id)
+            await db.flush()
 
-        for srv in services:
-            assoc_q = await db.execute(select(BarberServiceAssociation).where(
-                BarberServiceAssociation.barber_id == barber2.id,
-                BarberServiceAssociation.service_id == srv.id
-            ))
-            if not assoc_q.scalars().first():
-                db.add(BarberServiceAssociation(barber_id=barber2.id, service_id=srv.id))
-        await db.flush()
+        await _link_services(db, barber2.id, services)
 
         # Adiciona Clientes
         client_q = await db.execute(select(User).where(User.email == "cliente@trim.com"))
@@ -117,7 +144,7 @@ async def seed_database(secret: str = "open", db: AsyncSession = Depends(get_db)
         if not client:
             client = User(
                 email="cliente@trim.com",
-                hashed_password=get_password_hash("cliente123"),
+                hashed_password=_unusable_password_hash(),
                 full_name="João Silva (Cliente)",
                 role=UserRole.CLIENT
             )
@@ -249,41 +276,44 @@ async def seed_database(secret: str = "open", db: AsyncSession = Depends(get_db)
         plan_q = await db.execute(select(SubscriptionPlan))
         if not plan_q.scalars().first():
             plan1 = SubscriptionPlan(
-                name="Básico", 
-                description="2 Cortes no mês, Bebida cortesia, Cashback de 5%", 
-                price=80.0, 
-                billing_cycle="MONTHLY", 
+                name="Básico",
+                description="2 Cortes no mês, Bebida cortesia, Cashback de 5%",
+                monthly_price=80.0,
+                included_cuts=2,
+                included_shaves=0,
                 is_active=True
             )
+            # O modelo não tem "ilimitado": 30 cortes = um por dia do mês
             plan2 = SubscriptionPlan(
-                name="Executivo", 
-                description="Cortes Ilimitados, Barba a cada 15 dias, Bebida premium cortesia, Cashback de 10%, Prioridade na Fila Walk-in", 
-                price=150.0, 
-                billing_cycle="MONTHLY", 
+                name="Executivo",
+                description="Cortes Ilimitados, Barba a cada 15 dias, Bebida premium cortesia, Cashback de 10%, Prioridade na Fila Walk-in",
+                monthly_price=150.0,
+                included_cuts=30,
+                included_shaves=2,
                 is_active=True
             )
             plan3 = SubscriptionPlan(
-                name="Barba & Cabelo", 
-                description="2 Cortes no mês, 2 Barbas no mês, Bebida cortesia, Sorteios exclusivos", 
-                price=120.0, 
-                billing_cycle="MONTHLY", 
+                name="Barba & Cabelo",
+                description="2 Cortes no mês, 2 Barbas no mês, Bebida cortesia, Sorteios exclusivos",
+                monthly_price=120.0,
+                included_cuts=2,
+                included_shaves=2,
                 is_active=True
             )
             db.add_all([plan1, plan2, plan3])
             await db.flush()
 
         await db.commit()
-        return {"message": "Banco populado MUDOU DE PATAMAR! Todas as tabelas têm dados!"}
-    except Exception as e:
-        import traceback
-        return {"error": str(e), "traceback": traceback.format_exc()}
+    except Exception:
+        await db.rollback()
+        logger.exception("Falha ao popular o banco (seed)")
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=GENERIC_ERROR)
+    return {"message": "Banco populado MUDOU DE PATAMAR! Todas as tabelas têm dados!"}
 
-@router.post("/update_dates")
-async def update_dates(secret: str = "open", db: AsyncSession = Depends(get_db)):
+
+@router.post("/update_dates", dependencies=[Depends(require_seed_secret)])
+async def update_dates(db: AsyncSession = Depends(get_db)):
     """Atualiza as datas de todas as tabelas para HOJE (Útil para a apresentação)."""
-    if secret != "trim2026":
-        return {"error": "Acesso negado."}
-    
     from sqlalchemy import update, func
     from src.backend.modules.appointments.models import Appointment
     from src.backend.modules.finance.models import Transaction, BarberCommission
@@ -298,8 +328,8 @@ async def update_dates(secret: str = "open", db: AsyncSession = Depends(get_db))
         await db.execute(update(WalkInQueue).values(joined_at=func.now(), finished_at=func.now()))
         
         await db.commit()
-        return {"message": "Datas atualizadas para hoje!"}
-    except Exception as e:
-        import traceback
+    except Exception:
         await db.rollback()
-        return {"error": str(e), "traceback": traceback.format_exc()}
+        logger.exception("Falha ao atualizar as datas (update_dates)")
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=GENERIC_ERROR)
+    return {"message": "Datas atualizadas para hoje!"}
