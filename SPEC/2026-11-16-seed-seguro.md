@@ -23,8 +23,9 @@ Solução:
   Nenhum segredo fica no código.
 - A senha do admin de demonstração vem de `SEED_ADMIN_PASSWORD`. Sem ela, o seed não cria o admin
   (nem o perfil de barbeiro dele nem as transações associadas a ele) e segue com o resto.
-- Os demais usuários de demonstração (barbeiro e cliente) são criados com uma senha aleatória
-  descartada na hora: existem como dados, mas ninguém consegue entrar com eles.
+- A senha dos demais usuários de demonstração (barbeiro e cliente) vem de `SEED_DEMO_PASSWORD`.
+  Sem ela, os dois são criados com uma senha aleatória descartada na hora: existem como dados,
+  mas ninguém consegue entrar com eles.
 - O seed roda numa transação só: ou grava tudo, ou não grava nada.
 - Em caso de erro, a resposta é HTTP 500 com uma mensagem genérica. O detalhe e o traceback vão
   para o log do servidor.
@@ -59,7 +60,9 @@ repositório, e um banco novo passa a ser populado por completo, com o Trim Club
 - [ ] Se qualquer etapa do seed falhar, nada é gravado no banco.
 - [ ] Em caso de erro, as duas rotas respondem 500 com `{"detail": "<mensagem genérica>"}`, sem
       traceback nem mensagem da exceção no corpo; o erro é registrado no log com o traceback.
-- [ ] `.env.example` lista `SEED_SECRET` e `SEED_ADMIN_PASSWORD` vazias.
+- [ ] Com `SEED_DEMO_PASSWORD` definida, o seed cria o barbeiro e o cliente de demonstração com essa
+      senha. Sem ela, os dois são criados com senha aleatória e não é possível entrar com eles.
+- [ ] `.env.example` lista `SEED_SECRET`, `SEED_ADMIN_PASSWORD` e `SEED_DEMO_PASSWORD` vazias.
 - [ ] Testes automatizados cobrem: 404 sem `SEED_SECRET`, 403 com segredo errado, resposta de erro
       sem traceback e seed completo num banco PostgreSQL novo. A CI sobe um PostgreSQL para esses testes.
 
