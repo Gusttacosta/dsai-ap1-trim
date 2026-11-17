@@ -98,7 +98,8 @@ Todas as sessões de desenvolvimento, conduzidas por agentes de IA ou por humano
 
 - Nome: `AAAA-MM-DD-<parte-do-sistema>.md`, com a data em que a spec foi escrita.
 - **Mudança de rumo:** crie um arquivo novo com a nova data e declare no topo qual spec anterior ele substitui ou revisa. Não reescreva specs antigas.
-- **Pequenos ajustes:** edite a spec existente em um commit próprio, antes do código.
+- **Specs da AP1 são somente leitura:** os arquivos `SPEC/2026-09-29-*` nunca são editados, renomeados ou apagados. Qualquer mudança no que eles descrevem vira uma spec nova da AP2, com `> Substitui/complementa: SPEC/<arquivo>.md` no topo.
+- **Pequenos ajustes:** valem só para specs da AP2. Edite a spec existente em um commit próprio, antes do código.
 
 ### Template
 
