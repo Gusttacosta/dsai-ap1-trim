@@ -9,7 +9,9 @@ Tokens extraídos do campo `usage` das transcrições do Claude Code (mensagens 
 | `2026-11-10-1933-claudecode.jsonl` | 10/11 19:33 | 20:41 | claude-haiku-5-5, claude-opus-5-5 | 106 | 57,114 | 100,742 | 3,655,302 | 3,813,264 |
 | `2026-11-16-2027-claudecode.jsonl` | 16/11 20:27 | 20:55 | claude-opus-5-5 | 80 | 35,207 | 89,237 | 3,318,596 | 3,443,120 |
 | `2026-11-16-2059-claudecode.jsonl` | 16/11 20:59 | 21:11 | claude-opus-5-5 | 34 | 6,711 | 30,618 | 723,525 | 760,888 |
-| **Total** | | | | **358** | **134,555** | **329,199** | **11,469,126** | **11,933,238** |
+| `2026-11-16-2155-claudecode.jsonl` | 16/11 21:55 | 23:07 | claude-opus-5-5 | 50 | 20,297 | 77,523 | 1,448,697 | 1,546,567 |
+| **Total** | | | | **408** | **154,852** | **406,722** | **12,917,823** | **13,479,805** |
+
 
 Segredos mascarados na exportação: tokens JWT locais e e-mail pessoal (substituídos por `[jwt-removido]` / `[email-removido]`). Nenhuma outra alteração foi feita no texto.
 

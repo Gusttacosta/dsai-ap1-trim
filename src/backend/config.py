@@ -28,7 +28,7 @@ class Settings(BaseSettings):
 
     @property
     def database_url_async(self) -> str:
-        """Deriva a URL assíncrona a partir da URL padrão fornecida pelo Railway."""
+        """Deriva a URL assíncrona a partir da DATABASE_URL (ex.: postgresql:// do Render)."""
         url = self.database_url
         if url.startswith("postgres://"):
             url = url.replace("postgres://", "postgresql+asyncpg://", 1)
@@ -38,7 +38,7 @@ class Settings(BaseSettings):
 
     @property
     def database_url_sync(self) -> str:
-        """Deriva a URL síncrona a partir da URL padrão fornecida pelo Railway."""
+        """Deriva a URL síncrona a partir da DATABASE_URL (ex.: postgresql:// do Render)."""
         url = self.database_url
         if url.startswith("postgres://"):
             url = url.replace("postgres://", "postgresql+psycopg2://", 1)
@@ -61,7 +61,12 @@ class Settings(BaseSettings):
     seed_demo_password: str = ""
 
     # ── CORS ─────────────────────────────────────────────
-    cors_origins: str = "http://localhost:5173,http://localhost:3000,https://dsai-ap1-trim-frontend-production.up.railway.app"
+    # Só origens locais. Em produção, CORS_ORIGINS recebe a URL do frontend.
+    cors_origins: str = "http://localhost:5173,http://localhost:3000"
+
+    # ── Deploy ───────────────────────────────────────────
+    # O Render define RENDER_GIT_COMMIT em cada deploy; fora dele, "local".
+    render_git_commit: str = "local"
 
     # ── Server ───────────────────────────────────────────
     host: str = "0.0.0.0"
