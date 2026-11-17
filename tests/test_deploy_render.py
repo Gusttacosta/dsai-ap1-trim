@@ -28,3 +28,13 @@ def test_render_database_url_is_converted_for_asyncpg_and_psycopg2(monkeypatch, 
 
     assert s.database_url_async == "postgresql+asyncpg://trim:senha@host:5432/trim"
     assert s.database_url_sync == "postgresql+psycopg2://trim:senha@host:5432/trim"
+
+
+# ── CORS padrão ──────────────────────────────────────────
+
+
+def test_default_cors_origins_are_local_only(monkeypatch):
+    origins = make_settings(monkeypatch).cors_origins_list
+
+    assert origins == ["http://localhost:5173", "http://localhost:3000"]
+    assert not any("railway" in origin for origin in origins)

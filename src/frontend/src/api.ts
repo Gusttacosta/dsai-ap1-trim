@@ -1,6 +1,8 @@
 import axios from 'axios';
 
-const API_URL = import.meta.env.VITE_API_URL || 'https://dsai-ap1-trim-backend-production.up.railway.app/api';
+// Em `npm run dev`, sem VITE_API_URL, usa o backend local. O build exige a
+// variável (ver vite.config.ts), então produção nunca cai neste padrão.
+const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000/api';
 
 export const api = axios.create({
   baseURL: API_URL,

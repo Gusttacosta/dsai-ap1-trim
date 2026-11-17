@@ -61,7 +61,8 @@ class Settings(BaseSettings):
     seed_demo_password: str = ""
 
     # ── CORS ─────────────────────────────────────────────
-    cors_origins: str = "http://localhost:5173,http://localhost:3000,https://dsai-ap1-trim-frontend-production.up.railway.app"
+    # Só origens locais. Em produção, CORS_ORIGINS recebe a URL do frontend.
+    cors_origins: str = "http://localhost:5173,http://localhost:3000"
 
     # ── Server ───────────────────────────────────────────
     host: str = "0.0.0.0"
