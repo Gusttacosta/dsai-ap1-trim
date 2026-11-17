@@ -28,7 +28,7 @@ class Settings(BaseSettings):
 
     @property
     def database_url_async(self) -> str:
-        """Deriva a URL assíncrona a partir da URL padrão fornecida pelo Railway."""
+        """Deriva a URL assíncrona a partir da DATABASE_URL (ex.: postgresql:// do Render)."""
         url = self.database_url
         if url.startswith("postgres://"):
             url = url.replace("postgres://", "postgresql+asyncpg://", 1)
@@ -38,7 +38,7 @@ class Settings(BaseSettings):
 
     @property
     def database_url_sync(self) -> str:
-        """Deriva a URL síncrona a partir da URL padrão fornecida pelo Railway."""
+        """Deriva a URL síncrona a partir da DATABASE_URL (ex.: postgresql:// do Render)."""
         url = self.database_url
         if url.startswith("postgres://"):
             url = url.replace("postgres://", "postgresql+psycopg2://", 1)
