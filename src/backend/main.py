@@ -54,11 +54,12 @@ app.add_middleware(
 # ── Health Check ─────────────────────────────────────────
 @app.get("/health", tags=["System"])
 async def health_check():
-    """Verifica se o backend está rodando."""
+    """Verifica se o backend está rodando e informa o commit em produção."""
     return {
         "status": "healthy",
         "app": settings.app_name,
         "version": "0.1.0",
+        "commit": settings.render_git_commit,
     }
 
 

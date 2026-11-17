@@ -64,6 +64,10 @@ class Settings(BaseSettings):
     # Só origens locais. Em produção, CORS_ORIGINS recebe a URL do frontend.
     cors_origins: str = "http://localhost:5173,http://localhost:3000"
 
+    # ── Deploy ───────────────────────────────────────────
+    # O Render define RENDER_GIT_COMMIT em cada deploy; fora dele, "local".
+    render_git_commit: str = "local"
+
     # ── Server ───────────────────────────────────────────
     host: str = "0.0.0.0"
     port: int = 8000
