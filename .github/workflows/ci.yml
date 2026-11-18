@@ -74,6 +74,9 @@ jobs:
       - name: Instalar dependências
         run: npm ci
 
+      - name: Testes
+        run: npm test
+
       # O build de produção exige VITE_API_URL e deve falhar sem ela.
       - name: Build sem VITE_API_URL falha
         run: |
