@@ -6,21 +6,62 @@ prevenção de conflito e clonagem de dados financeiros.
 """
 
 import uuid
+from collections.abc import Callable
 from datetime import date, datetime, time, timedelta, timezone
+from zoneinfo import ZoneInfo
 
 from sqlalchemy import and_, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
+from src.backend.config import settings
 from src.backend.modules.appointments.models import Appointment, AppointmentItem, AppointmentStatus
 from src.backend.modules.appointments.schemas import AppointmentCreateRequest
 from src.backend.modules.barbers.models import WorkSchedule
 from src.backend.modules.services.models import BarberServiceAssociation, Service
 
 
+PAST_START_ERROR = "Não é possível agendar em um horário que já passou."
+
+
+def utc_now() -> datetime:
+    """Instante atual em UTC. Os testes substituem esta função para fixar "agora"."""
+    return datetime.now(timezone.utc)
+
+
 class AppointmentService:
-    def __init__(self, db: AsyncSession):
+    def __init__(self, db: AsyncSession, now: Callable[[], datetime] | None = None):
         self.db = db
+        self._now = now
+
+    # ── Fuso da barbearia ────────────────────────────────
+    # O WorkSchedule guarda horas locais; o banco guarda UTC (SPEC/2026-11-18-agendamento-fuso-horario.md).
+
+    @property
+    def shop_tz(self) -> ZoneInfo:
+        return ZoneInfo(settings.shop_timezone)
+
+    def now(self) -> datetime:
+        return (self._now or utc_now)().astimezone(timezone.utc)
+
+    def local_today(self) -> date:
+        return self.now().astimezone(self.shop_tz).date()
+
+    def _local_to_utc(self, day: date, at: time) -> datetime:
+        return datetime.combine(day, at, tzinfo=self.shop_tz).astimezone(timezone.utc)
+
+    def _to_utc(self, dt: datetime) -> datetime:
+        """Sem fuso = horário da barbearia; com fuso = convertido para UTC."""
+        if dt.tzinfo is None:
+            dt = dt.replace(tzinfo=self.shop_tz)
+        return dt.astimezone(timezone.utc)
+
+    def _earliest_start(self) -> datetime:
+        """Inícios até este instante (inclusive) não podem ser agendados."""
+        return self.now() + timedelta(minutes=settings.booking_min_lead_minutes)
+
+    def _last_bookable_date(self) -> date:
+        return self.local_today() + timedelta(days=settings.booking_max_days_ahead)
 
     async def _get_services_for_barber(self, barber_id: uuid.UUID, service_ids: list[uuid.UUID]) -> list[Service]:
         """Garante que o barbeiro presta todos os serviços solicitados e retorna as instâncias."""
@@ -65,37 +106,41 @@ class AppointmentService:
         return result.scalar_one_or_none()
 
     async def get_availability(self, barber_id: uuid.UUID, target_date: date, duration_minutes: int) -> list[str]:
-        """Calcula slots disponíveis para uma duração específica em uma data."""
+        """Calcula slots livres ("HH:MM", hora local) para uma data no fuso da barbearia."""
+        if not self.local_today() <= target_date <= self._last_bookable_date():
+            return []
+
         schedule = await self._get_schedule_for_date(barber_id, target_date)
         
         if not schedule or not schedule.is_working:
             return []
 
-        # Pega todos os agendamentos já marcados para este dia
-        start_of_day = datetime.combine(target_date, time.min, tzinfo=timezone.utc)
-        end_of_day = datetime.combine(target_date, time.max, tzinfo=timezone.utc)
+        # Agendamentos do dia local: da meia-noite local até a meia-noite do dia seguinte
+        start_of_day = self._local_to_utc(target_date, time.min)
+        end_of_day = self._local_to_utc(target_date + timedelta(days=1), time.min)
         
         stmt = select(Appointment.start_datetime, Appointment.end_datetime).where(
             Appointment.barber_id == barber_id,
             Appointment.status.in_([AppointmentStatus.PENDING, AppointmentStatus.CONFIRMED, AppointmentStatus.COMPLETED]),
             Appointment.start_datetime >= start_of_day,
-            Appointment.start_datetime <= end_of_day
+            Appointment.start_datetime < end_of_day
         )
         result = await self.db.execute(stmt)
         booked_intervals = result.all()
 
         available_slots = []
         
-        # Gerar slots de 30 em 30 minutos desde start_time até end_time
-        # Simulando TZ UTC para os cálculos. Na vida real, aplicaria fuso local.
-        current_dt = datetime.combine(target_date, schedule.start_time, tzinfo=timezone.utc)
-        end_dt_limit = datetime.combine(target_date, schedule.end_time, tzinfo=timezone.utc)
-        
+        # Gerar slots de 30 em 30 minutos desde start_time até end_time.
+        # O expediente está em hora local; as comparações são feitas em UTC.
+        current_dt = self._local_to_utc(target_date, schedule.start_time)
+        end_dt_limit = self._local_to_utc(target_date, schedule.end_time)
+        earliest_start = self._earliest_start()
+
         break_start_dt = None
         break_end_dt = None
         if schedule.break_start and schedule.break_end:
-            break_start_dt = datetime.combine(target_date, schedule.break_start, tzinfo=timezone.utc)
-            break_end_dt = datetime.combine(target_date, schedule.break_end, tzinfo=timezone.utc)
+            break_start_dt = self._local_to_utc(target_date, schedule.break_start)
+            break_end_dt = self._local_to_utc(target_date, schedule.break_end)
 
         while current_dt + timedelta(minutes=duration_minutes) <= end_dt_limit:
             slot_end_dt = current_dt + timedelta(minutes=duration_minutes)
@@ -113,8 +158,10 @@ class AppointmentService:
                     is_booked_conflict = True
                     break
             
-            if not is_break_conflict and not is_booked_conflict:
-                available_slots.append(current_dt.strftime("%H:%M"))
+            is_past = current_dt <= earliest_start
+
+            if not is_break_conflict and not is_booked_conflict and not is_past:
+                available_slots.append(current_dt.astimezone(self.shop_tz).strftime("%H:%M"))
             
             # Avança o ponteiro de 30 em 30 min
             current_dt += timedelta(minutes=30)
@@ -130,19 +177,25 @@ class AppointmentService:
         total_duration = sum(s.duration_minutes for s in services)
         total_price = sum(float(s.price) for s in services)
         
-        # Garante que start_datetime está no timezone correto (assumindo UTC)
-        start_dt = data.start_datetime
-        if start_dt.tzinfo is None:
-            start_dt = start_dt.replace(tzinfo=timezone.utc)
-            
+        # Horário sem fuso é o da barbearia; no banco, sempre UTC.
+        start_dt = self._to_utc(data.start_datetime)
+        local_date = start_dt.astimezone(self.shop_tz).date()
+
+        if start_dt <= self._earliest_start():
+            raise ValueError(PAST_START_ERROR)
+        if local_date > self._last_bookable_date():
+            raise ValueError(
+                f"Só é possível agendar até {settings.booking_max_days_ahead} dias à frente."
+            )
+
         end_dt = start_dt + timedelta(minutes=total_duration)
 
         # 3. Verifica choque de horários na agenda do barbeiro
         if await self._check_conflict(data.barber_id, start_dt, end_dt):
             raise ValueError("Conflito de horário. O barbeiro já possui um agendamento nesse período.")
 
-        # 4. Verifica se está dentro do horário de expediente
-        schedule = await self._get_schedule_for_date(data.barber_id, start_dt.date())
+        # 4. Verifica se o barbeiro trabalha no dia (dia da semana local)
+        schedule = await self._get_schedule_for_date(data.barber_id, local_date)
         if not schedule or not schedule.is_working:
             raise ValueError("O barbeiro não trabalha nesse dia.")
 
