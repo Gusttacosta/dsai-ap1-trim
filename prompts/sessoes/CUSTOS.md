@@ -14,7 +14,9 @@ Tokens extraídos do campo `usage` das transcrições do Claude Code (mensagens 
 | `2026-11-18-2025-claudecode.jsonl` | 18/11 20:25 | 20:52 | claude-opus-5-5 | 142 | 56,092 | 117,730 | 6,326,439 | 6,500,403 |
 | `2026-11-18-2052-claudecode.jsonl` | 18/11 20:52 | 21:52 | claude-opus-5-5 | 164 | 56,175 | 69,974 | 12,434,366 | 12,560,679 |
 | `2026-11-19-0143-claudecode.jsonl` | 19/11 01:43 | 01:51 | claude-opus-5-5 | 34 | 19,645 | 61,665 | 1,063,979 | 1,145,323 |
-| **Total** | | | | **850** | **312,822** | **712,141** | **35,569,980** | **36,595,793** |
+| `2026-11-19-2011-claudecode.jsonl` | 19/11 20:11 | 20:24 | claude-opus-5-5 | 82 | 29,595 | 93,482 | 2,633,167 | 2,756,326 |
+| `2026-11-19-2024-claudecode.jsonl` | 19/11 20:24 | 20:32 | claude-opus-5-5 | 52 | 15,130 | 24,919 | 3,048,522 | 3,088,623 |
+| **Total** | | | | **984** | **357,547** | **830,542** | **41,251,669** | **42,440,742** |
 
 
 
@@ -25,3 +27,7 @@ Sessões de 16/11: exportadas pelo terminal, com o mascaramento feito pelo `jq` 
 Sessões de 14/11 e 18/11: o mascaramento foi feito nas strings do JSON já interpretado, e o arquivo continua válido. Foram mascarados os e-mails pessoais (do Severino e de terceiros que apareceram no histórico do git), inclusive quando escritos como padrão de `sed`/`grep`, e também a parte antes do `@`. O e-mail noreply do GitHub, os e-mails fictícios de teste (`@trim.com`, `@teste.com`) e o login público `Severino-Sobrinho` foram mantidos. A transcrição de 18/11 foi exportada durante a sessão, então os minutos finais (o commit das sessões) não estão no arquivo nem na contagem.
 
 Sessão de 18/11 a partir das 20:52 (PR #25): é a continuação da sessão de 18/11 20:25, separada pelo `timestamp` (entradas a partir de `2026-11-18T23:52:00Z`), para não alterar o arquivo que já está na `main`. Mesmo mascaramento das sessões de 14/11 e 18/11; como nesta parte não aparece nenhum e-mail completo, os prefixos dos e-mails pessoais foram mascarados à parte. A exportação vai até 21:52 e não inclui o commit desta sessão.
+
+Sessão de 19/11 às 20:11 (issue #2): exportada pelo agente durante a sessão, com o mesmo mascaramento das sessões de 14/11 e 18/11 (e-mail pessoal e senhas em URLs do PostgreSQL, inclusive a da CI). A exportação vai até 20:24 e não inclui o commit desta sessão.
+
+Sessão de 19/11 a partir das 20:24 (issue #26): é a continuação da sessão das 20:11, separada pelo `timestamp` (entradas depois de `2026-11-19T23:24:54.027Z`), porque a primeira parte foi para o PR da #2. Mesmo mascaramento, agora também com o prefixo do e-mail pessoal escrito pela metade em padrões de busca. A linha da sessão das 20:11 também está aqui, igual à do PR da #2, para o total ficar certo depois dos dois merges. A exportação vai até 20:32 e não inclui o commit desta sessão.
