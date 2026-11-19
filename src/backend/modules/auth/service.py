@@ -5,6 +5,7 @@ Camada de serviço (regras de negócio) para o módulo de autenticação.
 Manipula usuários, tokens, e controla taxa de login.
 """
 
+import logging
 import uuid
 from datetime import datetime, timedelta, timezone
 from typing import Optional
@@ -15,6 +16,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from src.backend.modules.auth import security
 from src.backend.modules.auth.models import EmailVerificationToken, PasswordResetToken, User, UserRole
 from src.backend.modules.auth.schemas import UserRegisterRequest
+
+logger = logging.getLogger(__name__)
 
 
 class AuthService:
@@ -78,7 +81,9 @@ class AuthService:
         self.db.add(verification_token)
         
         # Em dev, imprime o token. Em prod, enviaria email.
-        print(f"📧 [MOCK EMAIL] Para verificar o email de {new_user.email}, use o token: {token_str}")
+        logger.info(
+            "[MOCK EMAIL] Para verificar o email de %s, use o token: %s", new_user.email, token_str
+        )
 
         await self.db.commit()
         await self.db.refresh(new_user)
@@ -135,7 +140,9 @@ class AuthService:
         self.db.add(reset_token)
         await self.db.commit()
         
-        print(f"🔑 [MOCK EMAIL] Link de reset para {user.email}: /reset-password?token={token_str}")
+        logger.info(
+            "[MOCK EMAIL] Link de reset para %s: /reset-password?token=%s", user.email, token_str
+        )
         return token_str
 
     async def reset_password(self, token_str: str, new_password: str) -> bool:
