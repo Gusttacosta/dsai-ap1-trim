@@ -11,15 +11,14 @@ from datetime import timedelta
 
 import pytest
 import pytest_asyncio
-from sqlalchemy import select
 
 from src.backend.main import app
-from src.backend.modules.appointments.models import Appointment, AppointmentStatus
+from src.backend.modules.appointments.models import AppointmentStatus
 from src.backend.modules.appointments.service import AppointmentService
 from src.backend.modules.auth.dependencies import get_current_user
-from src.backend.modules.auth.models import User, UserRole
+from src.backend.modules.auth.models import UserRole
 from src.backend.modules.finance.models import BarberCommission, Transaction
-from tests.agenda_fixtures import brt, count, create_shop, needs_db
+from tests.agenda_fixtures import add_appointment, add_user, brt, count, create_shop, needs_db, status_in_db
 
 pytestmark = [pytest.mark.asyncio, needs_db]
 
@@ -37,34 +36,6 @@ def clear_overrides():
 async def shop(sessionmaker, set_now):
     set_now(NOW)
     return await create_shop(sessionmaker)
-
-
-async def add_appointment(maker, shop, *, start, status=AppointmentStatus.CONFIRMED, client_id=None):
-    async with maker() as db:
-        appointment = Appointment(
-            client_id=client_id or shop["client"].id,
-            barber_id=shop["barber_id"],
-            start_datetime=start,
-            end_datetime=start + timedelta(minutes=30),
-            status=status,
-            total_price=40,
-        )
-        db.add(appointment)
-        await db.commit()
-        return appointment.id
-
-
-async def other_client(maker):
-    async with maker() as db:
-        user = User(email="outro@teste.com", hashed_password="x", full_name="Outro", role=UserRole.CLIENT)
-        db.add(user)
-        await db.commit()
-        return user
-
-
-async def status_in_db(maker, appointment_id):
-    async with maker() as db:
-        return (await db.execute(select(Appointment.status).where(Appointment.id == appointment_id))).scalar_one()
 
 
 async def cancel_as(client, user, appointment_id):
@@ -85,7 +56,7 @@ async def test_owner_cancels_active_future_appointment(client, sessionmaker, sho
 
 async def test_other_client_gets_404_and_nothing_changes(client, sessionmaker, shop):
     appointment_id = await add_appointment(sessionmaker, shop, start=brt(2026, 11, 9, 10, 0))
-    intruder = await other_client(sessionmaker)
+    intruder = await add_user(sessionmaker, "outro@teste.com")
 
     response = await cancel_as(client, intruder, appointment_id)
 
