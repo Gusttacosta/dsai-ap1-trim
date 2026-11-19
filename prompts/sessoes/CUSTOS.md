@@ -13,7 +13,9 @@ Tokens extraídos do campo `usage` das transcrições do Claude Code (mensagens 
 | `2026-11-16-2155-claudecode.jsonl` | 16/11 21:55 | 23:07 | claude-opus-5-5 | 50 | 20,297 | 77,523 | 1,448,697 | 1,546,567 |
 | `2026-11-18-2025-claudecode.jsonl` | 18/11 20:25 | 20:52 | claude-opus-5-5 | 142 | 56,092 | 117,730 | 6,326,439 | 6,500,403 |
 | `2026-11-18-2052-claudecode.jsonl` | 18/11 20:52 | 21:52 | claude-opus-5-5 | 164 | 56,175 | 69,974 | 12,434,366 | 12,560,679 |
-| **Total** | | | | **816** | **293,177** | **650,476** | **34,506,001** | **35,450,470** |
+| `2026-11-19-0143-claudecode.jsonl` | 19/11 01:43 | 01:51 | claude-opus-5-5 | 34 | 19,645 | 61,665 | 1,063,979 | 1,145,323 |
+| **Total** | | | | **850** | **312,822** | **712,141** | **35,569,980** | **36,595,793** |
+
 
 
 Segredos mascarados na exportação: tokens JWT locais e e-mail pessoal (substituídos por `[jwt-removido]` / `[email-removido]`). Nenhuma outra alteração foi feita no texto. Nas sessões de 08/11 e 10/11, os commits foram reescritos depois com o e-mail noreply do GitHub (`<id>+Severino-Sobrinho@users.noreply.github.com`), que é público e por isso aparece nas transcrições sem máscara.
