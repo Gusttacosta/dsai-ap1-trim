@@ -12,7 +12,8 @@ Tokens extraídos do campo `usage` das transcrições do Claude Code (mensagens 
 | `2026-11-16-2059-claudecode.jsonl` | 16/11 20:59 | 21:11 | claude-opus-5-5 | 34 | 6,711 | 30,618 | 723,525 | 760,888 |
 | `2026-11-16-2155-claudecode.jsonl` | 16/11 21:55 | 23:07 | claude-opus-5-5 | 50 | 20,297 | 77,523 | 1,448,697 | 1,546,567 |
 | `2026-11-18-2025-claudecode.jsonl` | 18/11 20:25 | 20:52 | claude-opus-5-5 | 142 | 56,092 | 117,730 | 6,326,439 | 6,500,403 |
-| **Total** | | | | **652** | **237,002** | **580,502** | **22,071,635** | **22,889,791** |
+| `2026-11-18-2052-claudecode.jsonl` | 18/11 20:52 | 21:52 | claude-opus-5-5 | 164 | 56,175 | 69,974 | 12,434,366 | 12,560,679 |
+| **Total** | | | | **816** | **293,177** | **650,476** | **34,506,001** | **35,450,470** |
 
 
 Segredos mascarados na exportação: tokens JWT locais e e-mail pessoal (substituídos por `[jwt-removido]` / `[email-removido]`). Nenhuma outra alteração foi feita no texto. Nas sessões de 08/11 e 10/11, os commits foram reescritos depois com o e-mail noreply do GitHub (`<id>+Severino-Sobrinho@users.noreply.github.com`), que é público e por isso aparece nas transcrições sem máscara.
@@ -20,3 +21,5 @@ Segredos mascarados na exportação: tokens JWT locais e e-mail pessoal (substit
 Sessões de 16/11: exportadas pelo terminal, com o mascaramento feito pelo `jq` dentro dos textos do JSON, o que mantém o arquivo válido. A senha do banco local também foi mascarada (`[senha-removida]`). Nessa data, as tentativas de pedir a exportação ao próprio agente foram bloqueadas pelo filtro de segurança do modelo (`reasoning_extraction`), inclusive com o Sonnet, que por isso não registrou consumo.
 
 Sessões de 14/11 e 18/11: o mascaramento foi feito nas strings do JSON já interpretado, e o arquivo continua válido. Foram mascarados os e-mails pessoais (do Severino e de terceiros que apareceram no histórico do git), inclusive quando escritos como padrão de `sed`/`grep`, e também a parte antes do `@`. O e-mail noreply do GitHub, os e-mails fictícios de teste (`@trim.com`, `@teste.com`) e o login público `Severino-Sobrinho` foram mantidos. A transcrição de 18/11 foi exportada durante a sessão, então os minutos finais (o commit das sessões) não estão no arquivo nem na contagem.
+
+Sessão de 18/11 a partir das 20:52 (PR #25): é a continuação da sessão de 18/11 20:25, separada pelo `timestamp` (entradas a partir de `2026-11-18T23:52:00Z`), para não alterar o arquivo que já está na `main`. Mesmo mascaramento das sessões de 14/11 e 18/11; como nesta parte não aparece nenhum e-mail completo, os prefixos dos e-mails pessoais foram mascarados à parte. A exportação vai até 21:52 e não inclui o commit desta sessão.
