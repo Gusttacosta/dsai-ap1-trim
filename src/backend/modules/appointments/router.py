@@ -13,7 +13,6 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from src.backend.database import get_db
 from src.backend.modules.auth.dependencies import get_current_admin, get_current_barber_or_admin, get_current_user
 from src.backend.modules.auth.models import User
-from src.backend.modules.appointments.models import AppointmentStatus
 from src.backend.modules.appointments.schemas import (
     AppointmentCreateRequest,
     AppointmentResponse,
@@ -114,14 +113,14 @@ async def cancel_my_appointment(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    """(Cliente) Cancela um agendamento próprio (apenas se for futuro)."""
-    # Em uma versão avançada, faríamos a checagem se o agendamento pertence
-    # ao usuário e se é de fato no futuro.
+    """(Cliente) Cancela um agendamento próprio, pendente ou confirmado, que ainda não começou."""
     service = AppointmentService(db)
-    appointment = await service.update_status(appointment_id, AppointmentStatus.CANCELLED)
-    if not appointment:
-        raise HTTPException(status_code=404, detail="Agendamento não encontrado.")
-    return appointment
+    try:
+        return await service.cancel_by_client(appointment_id, current_user.id)
+    except LookupError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
 
 
 # ── Endpoints Autenticados (Barbeiro) ────────────────────

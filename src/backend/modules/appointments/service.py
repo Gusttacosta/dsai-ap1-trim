@@ -22,6 +22,10 @@ from src.backend.modules.services.models import BarberServiceAssociation, Servic
 
 
 PAST_START_ERROR = "Não é possível agendar em um horário que já passou."
+NOT_FOUND_ERROR = "Agendamento não encontrado."
+CANCEL_STATUS_ERROR = "Só é possível cancelar agendamentos pendentes ou confirmados."
+CANCEL_STARTED_ERROR = "Não é possível cancelar um agendamento que já começou."
+CANCELLABLE_STATUSES = (AppointmentStatus.PENDING, AppointmentStatus.CONFIRMED)
 
 
 def utc_now() -> datetime:
@@ -241,6 +245,27 @@ class AppointmentService:
         stmt = select(Appointment).where(Appointment.barber_id == barber_id).options(selectinload(Appointment.items)).order_by(Appointment.start_datetime.desc())
         result = await self.db.execute(stmt)
         return list(result.scalars().all())
+
+    async def cancel_by_client(self, appointment_id: uuid.UUID, client_id: uuid.UUID) -> Appointment:
+        """Cancela um agendamento do próprio cliente, se ainda ativo e no futuro.
+
+        Agendamento de outra pessoa levanta o mesmo LookupError de um id inexistente,
+        para não revelar que ele existe (SPEC/2026-11-18-cancelamento-agendamento.md).
+        """
+        stmt = select(Appointment).where(Appointment.id == appointment_id).options(selectinload(Appointment.items))
+        appointment = (await self.db.execute(stmt)).scalar_one_or_none()
+
+        if not appointment or appointment.client_id != client_id:
+            raise LookupError(NOT_FOUND_ERROR)
+        if appointment.status not in CANCELLABLE_STATUSES:
+            raise ValueError(CANCEL_STATUS_ERROR)
+        if appointment.start_datetime <= self.now():
+            raise ValueError(CANCEL_STARTED_ERROR)
+
+        appointment.status = AppointmentStatus.CANCELLED
+        await self.db.commit()
+        await self.db.refresh(appointment)
+        return appointment
 
     async def update_status(self, appointment_id: uuid.UUID, new_status: AppointmentStatus) -> Appointment | None:
         """Altera o status do agendamento (CANCELLED, COMPLETED, etc)."""
