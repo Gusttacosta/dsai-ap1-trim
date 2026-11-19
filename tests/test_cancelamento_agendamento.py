@@ -95,9 +95,10 @@ async def test_inactive_appointment_cannot_be_cancelled(client, sessionmaker, sh
 
 
 async def test_completed_appointment_keeps_status_and_finance(client, sessionmaker, shop):
-    appointment_id = await add_appointment(sessionmaker, shop, start=brt(2026, 11, 9, 10, 0))
+    appointment_id = await add_appointment(sessionmaker, shop, start=NOW - timedelta(minutes=30))
+    admin = await add_user(sessionmaker, "admin@teste.com", UserRole.ADMIN)
     async with sessionmaker() as db:
-        await AppointmentService(db).update_status(appointment_id, AppointmentStatus.COMPLETED)
+        await AppointmentService(db).change_status_by_staff(appointment_id, AppointmentStatus.COMPLETED, admin)
 
     response = await cancel_as(client, shop["client"], appointment_id)
 

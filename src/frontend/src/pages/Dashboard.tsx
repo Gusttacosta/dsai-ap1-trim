@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate, Routes, Route, Link, useLocation } from 'react-router-dom';
 import styles from './Dashboard.module.css';
 import api from '../api';
+import { canFinish } from '../utils/appointmentStatus';
 
 import AdminStore from './AdminStore';
 import AdminServices from './AdminServices';
@@ -89,7 +90,7 @@ const Overview = ({ user }: { user: any }) => {
                     <h4>{item.notes ? item.notes : 'Cliente'}</h4>
                     <p>{item.start_datetime.substring(11, 16)} • {item.status}</p>
                   </div>
-                  {item.status !== 'completed' && item.status !== 'cancelled' && (
+                  {canFinish(item) && (
                     <button 
                       onClick={() => {
                         api.put(`/appointments/${item.id}/status`, { status: "completed" })
@@ -97,7 +98,9 @@ const Overview = ({ user }: { user: any }) => {
                             setAppointments(prev => prev.map(a => a.id === item.id ? { ...a, status: 'completed' } : a));
                             setStats((s: any) => ({ ...s, completed_appointments: s.completed_appointments + 1, total_revenue: s.total_revenue + Number(item.total_price) }));
                           })
-                          .catch(console.error);
+                          .catch((err: any) => {
+                            alert(`Não foi possível finalizar: ${err.response?.data?.detail || 'erro desconhecido.'}`);
+                          });
                       }}
                       style={{ padding: '0.5rem 1rem', background: 'var(--color-primary)', color: '#000', borderRadius: '8px', fontWeight: 'bold', border: 'none', cursor: 'pointer' }}
                     >

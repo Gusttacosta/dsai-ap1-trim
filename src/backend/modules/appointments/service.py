@@ -17,7 +17,8 @@ from sqlalchemy.orm import selectinload
 from src.backend.config import settings
 from src.backend.modules.appointments.models import Appointment, AppointmentItem, AppointmentStatus
 from src.backend.modules.appointments.schemas import AppointmentCreateRequest
-from src.backend.modules.barbers.models import WorkSchedule
+from src.backend.modules.auth.models import User, UserRole
+from src.backend.modules.barbers.models import Barber, WorkSchedule
 from src.backend.modules.services.models import BarberServiceAssociation, Service
 
 
@@ -26,6 +27,19 @@ NOT_FOUND_ERROR = "Agendamento não encontrado."
 CANCEL_STATUS_ERROR = "Só é possível cancelar agendamentos pendentes ou confirmados."
 CANCEL_STARTED_ERROR = "Não é possível cancelar um agendamento que já começou."
 CANCELLABLE_STATUSES = (AppointmentStatus.PENDING, AppointmentStatus.CONFIRMED)
+FINISH_BEFORE_START_ERROR = "Só é possível concluir ou marcar falta depois do início do agendamento."
+
+# Transições que barbeiro e admin podem fazer (SPEC/2026-11-18-status-agendamento.md).
+# COMPLETED, NO_SHOW e CANCELLED são finais.
+STAFF_TRANSITIONS = {
+    AppointmentStatus.PENDING: {AppointmentStatus.CONFIRMED, AppointmentStatus.CANCELLED},
+    AppointmentStatus.CONFIRMED: {
+        AppointmentStatus.COMPLETED,
+        AppointmentStatus.NO_SHOW,
+        AppointmentStatus.CANCELLED,
+    },
+}
+AFTER_START_STATUSES = {AppointmentStatus.COMPLETED, AppointmentStatus.NO_SHOW}
 
 
 def utc_now() -> datetime:
@@ -267,43 +281,76 @@ class AppointmentService:
         await self.db.refresh(appointment)
         return appointment
 
-    async def update_status(self, appointment_id: uuid.UUID, new_status: AppointmentStatus) -> Appointment | None:
-        """Altera o status do agendamento (CANCELLED, COMPLETED, etc)."""
+    async def change_status_by_staff(
+        self, appointment_id: uuid.UUID, new_status: AppointmentStatus, user: User
+    ) -> Appointment:
+        """Barbeiro (só os próprios agendamentos) ou admin muda o status, se a transição for válida.
+
+        Agendamento de outro barbeiro levanta o mesmo LookupError de um id inexistente.
+        """
         stmt = select(Appointment).where(Appointment.id == appointment_id).options(selectinload(Appointment.items))
-        result = await self.db.execute(stmt)
-        appointment = result.scalar_one_or_none()
-
+        appointment = (await self.db.execute(stmt)).scalar_one_or_none()
         if not appointment:
-            return None
+            raise LookupError(NOT_FOUND_ERROR)
 
-        if new_status == AppointmentStatus.COMPLETED and appointment.status != AppointmentStatus.COMPLETED:
-            from src.backend.modules.finance.models import Transaction, TransactionType, PaymentMethod, BarberCommission
-            from src.backend.modules.barbers.models import Barber
-            
-            # Cria a transação de faturamento
-            transaction = Transaction(
-                type=TransactionType.APPOINTMENT,
-                reference_id=appointment.id,
-                amount=appointment.total_price,
-                payment_method=PaymentMethod.CASH,  # Default para simplificar
-                user_id=appointment.client_id
-            )
-            self.db.add(transaction)
-            await self.db.flush()
+        if user.role != UserRole.ADMIN:
+            own_barber_id = (
+                await self.db.execute(select(Barber.id).where(Barber.user_id == user.id))
+            ).scalar_one_or_none()
+            if appointment.barber_id != own_barber_id:
+                raise LookupError(NOT_FOUND_ERROR)
 
-            # Calcula e cria a comissão do barbeiro
-            stmt_b = select(Barber.commission_rate).where(Barber.id == appointment.barber_id)
-            rate = (await self.db.execute(stmt_b)).scalar_one()
+        current = appointment.status
+        if new_status not in STAFF_TRANSITIONS.get(current, set()):
+            raise ValueError(f"Transição de status inválida: {current.value} → {new_status.value}.")
 
-            comm = BarberCommission(
-                barber_id=appointment.barber_id,
-                transaction_id=transaction.id,
-                amount=float(appointment.total_price) * (float(rate) / 100.0),
-                is_paid=False
-            )
-            self.db.add(comm)
+        started = appointment.start_datetime <= self.now()
+        if new_status in AFTER_START_STATUSES and not started:
+            raise ValueError(FINISH_BEFORE_START_ERROR)
+        if new_status == AppointmentStatus.CANCELLED and started:
+            raise ValueError(CANCEL_STARTED_ERROR)
+
+        if new_status == AppointmentStatus.COMPLETED:
+            await self._charge_once(appointment)
 
         appointment.status = new_status
         await self.db.commit()
         await self.db.refresh(appointment)
         return appointment
+
+    async def _charge_once(self, appointment: Appointment) -> None:
+        """Cria a transação e a comissão do atendimento, se ainda não existir cobrança para ele."""
+        from src.backend.modules.finance.models import BarberCommission, PaymentMethod, Transaction, TransactionType
+
+        already_charged = (
+            await self.db.execute(
+                select(Transaction.id).where(
+                    Transaction.type == TransactionType.APPOINTMENT,
+                    Transaction.reference_id == appointment.id,
+                )
+            )
+        ).first()
+        if already_charged:
+            return
+
+        transaction = Transaction(
+            type=TransactionType.APPOINTMENT,
+            reference_id=appointment.id,
+            amount=appointment.total_price,
+            payment_method=PaymentMethod.CASH,  # Default para simplificar
+            user_id=appointment.client_id,
+        )
+        self.db.add(transaction)
+        await self.db.flush()
+
+        rate = (
+            await self.db.execute(select(Barber.commission_rate).where(Barber.id == appointment.barber_id))
+        ).scalar_one()
+        self.db.add(
+            BarberCommission(
+                barber_id=appointment.barber_id,
+                transaction_id=transaction.id,
+                amount=float(appointment.total_price) * (float(rate) / 100.0),
+                is_paid=False,
+            )
+        )
