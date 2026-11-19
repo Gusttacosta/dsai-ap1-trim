@@ -334,9 +334,34 @@ README original que tratam da hospedagem (a URL pública e a linha de deploy da 
 
 #### 🆕 AP2 — fork
 
-Contagem do código novo em relação à linha de base (commit 95c79b5). Será preenchida em breve.
+Comando executado em 19/11/2026, comparando a linha de base da AP1 (95c79b5) com o estado atual do fork. Código novo: 734 linhas adicionadas e 94 modificadas.
 
-```text
+```github.com/AlDanial/cloc v 2.04  T=0.18 s (96.9 files/s, 11681.6 lines/s)
+-------------------------------------------------------------------------------
+Language                     files          blank        comment           code
+-------------------------------------------------------------------------------
+Python
+ same                            0              0             94            566
+ modified                        6              0             13             67
+ added                           5            275             67            635
+ removed                         0              0              2             17
+TypeScript
+ same                            0              0              1            163
+ modified                        3              0              0             27
+ added                           2             14              8             97
+ removed                         0              0              0              1
+INI
+ same                            0              0              0              0
+ modified                        0              0              0              0
+ added                           1              0              0              2
+ removed                         0              0              0              0
+-------------------------------------------------------------------------------
+SUM:
+ same                            0              0             95            729
+ modified                        9              0             13             94
+ added                           8            289             75            734
+ removed                         0              0              2             18
+-------------------------------------------------------------------------------
 ```
 
 ---
