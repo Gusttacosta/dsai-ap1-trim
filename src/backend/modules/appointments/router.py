@@ -153,9 +153,11 @@ async def update_appointment_status(
     db: AsyncSession = Depends(get_db),
     barber_user: User = Depends(get_current_barber_or_admin),
 ):
-    """(Barbeiro/Admin) Atualiza o status de um agendamento (ex: COMPLETED, NO_SHOW)."""
+    """(Barbeiro/Admin) Muda o status: barbeiro só nos próprios agendamentos, e só transições válidas."""
     service = AppointmentService(db)
-    appointment = await service.update_status(appointment_id, data.status)
-    if not appointment:
-        raise HTTPException(status_code=404, detail="Agendamento não encontrado.")
-    return appointment
+    try:
+        return await service.change_status_by_staff(appointment_id, data.status, barber_user)
+    except LookupError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))

@@ -7,7 +7,7 @@ descartável a cada teste. "Agora" é fixado substituindo `utc_now` no módulo d
 
 import os
 import uuid
-from datetime import datetime, time, timezone
+from datetime import datetime, time, timedelta, timezone
 from zoneinfo import ZoneInfo
 
 import pytest
@@ -19,6 +19,7 @@ from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 from src.backend.database import Base, get_db
 from src.backend.main import app
 from src.backend.modules.appointments import service as appointment_service
+from src.backend.modules.appointments.models import Appointment, AppointmentStatus
 from src.backend.modules.auth.models import User, UserRole
 from src.backend.modules.barbers.models import Barber, WorkSchedule
 from src.backend.modules.services.models import BarberServiceAssociation, Service
@@ -108,9 +109,44 @@ async def create_shop(maker, *, days=range(7), start="09:00", end="18:00", lunch
                 )
             )
         await db.commit()
-        return {"client": client_user, "barber_id": barber.id, "service_id": service.id}
+        return {
+            "client": client_user,
+            "barber_user": barber_user,
+            "barber_id": barber.id,
+            "service_id": service.id,
+        }
 
 
 async def count(maker, model):
     async with maker() as db:
         return (await db.execute(select(func.count()).select_from(model))).scalar_one()
+
+
+async def add_user(maker, email, role=UserRole.CLIENT):
+    async with maker() as db:
+        user = User(email=email, hashed_password="x", full_name=email.split("@")[0], role=role)
+        db.add(user)
+        await db.commit()
+        return user
+
+
+async def add_appointment(maker, shop, *, start, status=AppointmentStatus.CONFIRMED, barber_id=None):
+    """Cria um agendamento de 30 min do cliente da barbearia de teste."""
+    async with maker() as db:
+        appointment = Appointment(
+            client_id=shop["client"].id,
+            barber_id=barber_id or shop["barber_id"],
+            start_datetime=start,
+            end_datetime=start + timedelta(minutes=30),
+            status=status,
+            total_price=40,
+        )
+        db.add(appointment)
+        await db.commit()
+        return appointment.id
+
+
+async def status_in_db(maker, appointment_id):
+    async with maker() as db:
+        stmt = select(Appointment.status).where(Appointment.id == appointment_id)
+        return (await db.execute(stmt)).scalar_one()
