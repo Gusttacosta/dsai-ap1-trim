@@ -27,6 +27,8 @@ email-validator
 
 # Utilities
 python-dotenv==1.1.0
+# Base de fusos para zoneinfo (o Windows não traz uma; ver #2 e #12)
+tzdata==2026.6
 
 # Testing
 pytest==8.4.1

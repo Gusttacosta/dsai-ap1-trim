@@ -60,6 +60,15 @@ class Settings(BaseSettings):
     # Vazia = barbeiro e cliente de demonstração ficam com senha aleatória (sem login).
     seed_demo_password: str = ""
 
+    # ── Agendamento ──────────────────────────────────────
+    # Fuso em que o expediente (WorkSchedule) e as datas da tela são interpretados.
+    # O banco guarda sempre UTC.
+    shop_timezone: str = "America/Sao_Paulo"
+    # Antecedência mínima para agendar (0 = só proíbe horários que já passaram) e
+    # quantos dias à frente se pode agendar. Provisórios até a resposta do cliente (#15).
+    booking_min_lead_minutes: int = 0
+    booking_max_days_ahead: int = 30
+
     # ── CORS ─────────────────────────────────────────────
     # Só origens locais. Em produção, CORS_ORIGINS recebe a URL do frontend.
     cors_origins: str = "http://localhost:5173,http://localhost:3000"
