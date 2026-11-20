@@ -17,7 +17,9 @@ Tokens extraídos do campo `usage` das transcrições do Claude Code (mensagens 
 | `2026-11-19-2011-claudecode.jsonl` | 19/11 20:11 | 20:24 | claude-opus-5-5 | 82 | 29,595 | 93,482 | 2,633,167 | 2,756,326 |
 | `2026-11-19-2024-claudecode.jsonl` | 19/11 20:24 | 20:32 | claude-opus-5-5 | 52 | 15,130 | 24,919 | 3,048,522 | 3,088,623 |
 | `2026-11-19-2032-claudecode.jsonl` | 19/11 20:32 | 21:00 | claude-opus-5-5 | 96 | 27,692 | 34,250 | 6,553,864 | 6,615,902 |
-| **Total** | | | | **1,080** | **385,239** | **864,792** | **47,805,533** | **49,056,644** |
+| `2026-11-19-2100-claudecode.jsonl` | 19/11 21:00 | 21:21 | claude-opus-5-5 | 44 | 16,997 | 39,660 | 4,100,879 | 4,157,580 |
+| `2026-11-19-2121-claudecode.jsonl` | 19/11 21:21 | 21:31 | claude-opus-5-5 | 32 | 9,051 | 10,890 | 2,997,749 | 3,017,722 |
+| **Total** | | | | **1,156** | **411,287** | **915,342** | **54,904,161** | **56,231,946** |
 
 
 
@@ -34,3 +36,7 @@ Sessão de 19/11 às 20:11 (issue #2): exportada pelo agente durante a sessão, 
 Sessão de 19/11 a partir das 20:24 (issue #26): é a continuação da sessão das 20:11, separada pelo `timestamp` (entradas depois de `2026-11-19T23:24:54.027Z`), porque a primeira parte foi para o PR da #2. Mesmo mascaramento, agora também com o prefixo do e-mail pessoal escrito pela metade em padrões de busca. A linha da sessão das 20:11 também está aqui, igual à do PR da #2, para o total ficar certo depois dos dois merges. A exportação vai até 20:32 e não inclui o commit desta sessão.
 
 Sessão de 19/11 a partir das 20:32 (merges dos PRs #28 e #29, issue #30): terceira parte da mesma sessão, separada pelo `timestamp` (entradas depois de `2026-11-19T23:32:53.223Z`). Mesmo mascaramento, agora também com o sobrenome do e-mail pessoal, que aparecia sozinho em padrões de busca. A exportação vai até 21:00 e não inclui o commit desta sessão.
+
+Sessão de 19/11 a partir das 21:00 (README do Windows): quarta parte da mesma sessão, separada pelo `timestamp` (entradas depois de `2026-11-20T00:00:16.570Z`). Mesmo mascaramento; as senhas de exemplo do README (`senha-de-exemplo`) também saíram mascaradas nas URLs do PostgreSQL. A linha da parte das 20:32 também está aqui, igual à do PR #31, para o total ficar certo depois dos dois merges. A exportação vai até 21:21 e não inclui o commit desta sessão.
+
+Sessão de 19/11 a partir das 21:21 (fechamento do dia): quinta e última parte da mesma sessão, separada pelo `timestamp` (entradas depois de `2026-11-20T00:21:02.255Z`), com o rerun da CI do PR #31 e o merge da `main` no PR #32. Mesmo mascaramento. A exportação vai até 21:31 e não inclui o commit desta parte nem o merge do PR #32.
