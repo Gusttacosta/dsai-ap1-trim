@@ -193,8 +193,142 @@ cd src/frontend && npm test
 
 ### Ambiente do Severino: Windows
 
-_Espaço reservado: o Severino vai descrever aqui o passo a passo no Windows (inclusive
-`PYTHONUTF8=1`, ver #2, e a porta 5173 presa por um Vite órfão, ver #11)._
+O projeto roda direto no **Windows 10** (Home, versão 10.0.19045), com backend, frontend e
+PostgreSQL na mesma máquina, acessados por `localhost`. Os comandos abaixo são para o
+**PowerShell 5.1**, o padrão do Windows 10. No Git Bash valem os comandos da seção do Henrique,
+trocando `source venv/bin/activate` por `source venv/Scripts/activate`. Troque as senhas de
+exemplo por senhas suas.
+
+#### Pré-requisitos
+
+Versões usadas neste ambiente:
+
+| Ferramenta | Versão | Observação |
+| :--- | :--- | :--- |
+| Python | 3.12.10 | a CI usa o 3.12 |
+| Node.js / npm | 26.13 / 11.20 | qualquer Node 20 ou mais novo serve; a CI usa o 22 |
+| PostgreSQL | 17 (instalador oficial) | roda como o serviço `postgresql-x64-17`, que inicia com o Windows |
+| Git | 2.56 (Git for Windows) | traz o Git Bash |
+
+O instalador do PostgreSQL não põe o `psql` no `PATH`. Nos comandos abaixo, ele é chamado pelo
+caminho completo. Para conferir se o serviço está no ar: `Get-Service postgresql-x64-17`.
+
+O `cloc` não está instalado neste ambiente. A contagem de linhas está na seção
+[Contagem de Linhas](#-contagem-de-linhas-de-código-cloc).
+
+#### 1. Código e ambiente Python
+
+```powershell
+git clone https://github.com/henriquelm-io/dsai-ap2-trim.git
+cd dsai-ap2-trim
+
+python -m venv venv
+.\venv\Scripts\Activate.ps1
+pip install -r requirements.txt
+```
+
+Se o PowerShell recusar o `Activate.ps1` por causa da política de execução, libere scripts locais
+só para o seu usuário com `Set-ExecutionPolicy -Scope CurrentUser RemoteSigned`. Outra opção é não
+ativar o venv e chamar o Python dele direto: `.\venv\Scripts\python.exe -m pip ...`,
+`.\venv\Scripts\python.exe -m uvicorn ...` e `.\venv\Scripts\python.exe -m pytest ...`.
+
+#### 2. PostgreSQL local, com usuário e banco próprios
+
+Os comandos pedem a senha do usuário `postgres`, definida na instalação:
+
+```powershell
+$psql = "C:\Program Files\PostgreSQL\17\bin\psql.exe"
+& $psql -U postgres -c "CREATE USER trim WITH PASSWORD 'senha-de-exemplo';"
+& $psql -U postgres -c "CREATE DATABASE trim_db OWNER trim;"
+# Opcional: banco descartável para os testes que precisam de PostgreSQL
+& $psql -U postgres -c "CREATE DATABASE trim_test OWNER trim;"
+```
+
+#### 3. `.env`
+
+```powershell
+Copy-Item .env.example .env
+```
+
+No `.env`, ajuste pelo menos:
+
+```dotenv
+DATABASE_URL=postgresql+asyncpg://trim:senha-de-exemplo@localhost:5432/trim_db
+DATABASE_URL_SYNC=postgresql+psycopg2://trim:senha-de-exemplo@localhost:5432/trim_db
+SECRET_KEY=troque-por-um-valor-longo-e-aleatorio
+CORS_ORIGINS=http://localhost:5173,http://127.0.0.1:5173
+```
+
+Como tudo roda na mesma máquina, o CORS só precisa liberar o `localhost:5173` do Vite. O `.env`
+está no `.gitignore` e nunca vai para o Git.
+
+#### 4. Backend
+
+```powershell
+.\venv\Scripts\Activate.ps1
+python -m uvicorn src.backend.main:app --port 8000
+```
+
+O backend sobe sem nenhuma variável extra desde a correção da #2 (PR #28). Num commit anterior a
+ela, a inicialização falha com `UnicodeEncodeError` (os `print` com emoji não cabem no cp1252 do
+console). Nesse caso, rode `$env:PYTHONUTF8=1` antes do `uvicorn`.
+
+Como na seção do Henrique, **não há migrações** (ver #6): as tabelas são criadas pelo próprio
+backend ao iniciar. Para conferir, use `curl.exe http://localhost:8000/health`. No PowerShell 5.1,
+`curl` sem `.exe` é um apelido do `Invoke-WebRequest` e não aceita as mesmas opções.
+
+#### 5. Frontend
+
+Em outro terminal:
+
+```powershell
+cd src\frontend
+npm install
+$env:VITE_API_URL="http://localhost:8000/api"; npm run dev -- --port 5173 --strictPort
+```
+
+Abra `http://localhost:5173`. No `npm run dev`, sem `VITE_API_URL`, o padrão já é
+`http://localhost:8000/api`. Definir a variável deixa claro para qual backend o frontend aponta.
+O `npm run build` falha sem ela.
+
+**Use sempre `--strictPort` (ver #11).** No Windows, se o `npm run dev` for encerrado sem Ctrl+C no
+próprio terminal (pelo Gerenciador de Tarefas ou fechando a ferramenta que o iniciou), o processo
+`node ...vite.js` continua escutando a porta 5173. Sem `--strictPort`, o Vite novo sobe em outra
+porta sem avisar, e o navegador em `localhost:5173` continua falando com o Vite antigo, que pode
+estar apontando para outro backend. Com `--strictPort`, aparece o erro de porta em uso. Para
+achar e encerrar o processo órfão:
+
+```powershell
+netstat -ano | findstr :5173
+# Confira se o PID da última coluna é mesmo o Vite antes de encerrá-lo
+Get-CimInstance Win32_Process -Filter "ProcessId=<pid>" | Select-Object CommandLine
+Stop-Process -Id <pid>
+```
+
+Para conferir para qual backend o Vite no ar aponta, abra `http://localhost:5173/src/api.ts`: o
+`VITE_API_URL` servido precisa ser `http://localhost:8000/api`.
+
+#### 6. Dados de demonstração (seed)
+
+O mesmo da seção do Henrique: defina `SEED_SECRET`, `SEED_ADMIN_PASSWORD` e `SEED_DEMO_PASSWORD` no
+`.env`, reinicie o backend e rode, com o valor de `SEED_SECRET` no cabeçalho:
+
+```powershell
+curl.exe -X POST http://localhost:8000/api/dev/seed -H "X-Seed-Secret: <valor-de-SEED_SECRET>"
+```
+
+#### 7. Testes
+
+```powershell
+# Backend (sem TEST_DATABASE_URL, os testes de banco são pulados)
+$env:TEST_DATABASE_URL="postgresql+asyncpg://trim:senha-de-exemplo@localhost:5432/trim_test"
+python -m pytest -q
+
+# Frontend
+cd src\frontend; npm test
+```
+
+Neste ambiente, a suíte do backend (cerca de 13 mil testes) leva de 1,5 a 2,5 minutos.
 
 ---
 
