@@ -13,11 +13,26 @@ from typing import Optional
 from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from src.backend.config import settings
 from src.backend.modules.auth import security
 from src.backend.modules.auth.models import EmailVerificationToken, PasswordResetToken, User, UserRole
 from src.backend.modules.auth.schemas import UserRegisterRequest
 
 logger = logging.getLogger(__name__)
+
+TOKEN_OMITTED = "envio de email nao configurado (token omitido fora de development)."
+
+
+def log_mock_email(user: User, subject: str, dev_message: str, *dev_args) -> None:
+    """Registra o "e-mail falso" no lugar do envio, que ainda não existe (#30).
+
+    Em development, mostra o e-mail e o token, para testar sem servidor de e-mail. Fora dele, o log
+    do servidor não pode ter o token: quem lesse o log tomaria a conta. Fica só o id do usuário.
+    """
+    if settings.is_development:
+        logger.info(dev_message, *dev_args)
+    else:
+        logger.info("[MOCK EMAIL] %s gerada para o usuario %s; %s", subject, user.id, TOKEN_OMITTED)
 
 
 class AuthService:
@@ -80,9 +95,12 @@ class AuthService:
         )
         self.db.add(verification_token)
         
-        # Em dev, imprime o token. Em prod, enviaria email.
-        logger.info(
-            "[MOCK EMAIL] Para verificar o email de %s, use o token: %s", new_user.email, token_str
+        log_mock_email(
+            new_user,
+            "Verificacao de email",
+            "[MOCK EMAIL] Para verificar o email de %s, use o token: %s",
+            new_user.email,
+            token_str,
         )
 
         await self.db.commit()
@@ -140,8 +158,12 @@ class AuthService:
         self.db.add(reset_token)
         await self.db.commit()
         
-        logger.info(
-            "[MOCK EMAIL] Link de reset para %s: /reset-password?token=%s", user.email, token_str
+        log_mock_email(
+            user,
+            "Redefinicao de senha",
+            "[MOCK EMAIL] Link de reset para %s: /reset-password?token=%s",
+            user.email,
+            token_str,
         )
         return token_str
 
