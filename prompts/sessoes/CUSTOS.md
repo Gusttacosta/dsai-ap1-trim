@@ -21,7 +21,8 @@ Tokens extraídos do campo `usage` das transcrições do Claude Code (mensagens 
 | `2026-11-19-2121-claudecode.jsonl` | 19/11 21:21 | 21:31 | claude-opus-5-5 | 32 | 9,051 | 10,890 | 2,997,749 | 3,017,722 |
 | `2026-11-21-1609-claudecode.jsonl` | 21/11 16:09 | 16:48 | claude-opus-5-5 | 142 | 41,169 | 81,416 | 4,617,099 | 4,739,826 |
 | `2026-11-21-1648-claudecode.jsonl` | 21/11 16:48 | 17:19 | claude-opus-5-5 | 84 | 36,078 | 54,462 | 4,840,244 | 4,930,868 |
-| **Total** | | | | **1,382** | **488,534** | **1,051,220** | **64,361,504** | **65,902,640** |
+| `2026-11-21-1719-claudecode.jsonl` | 21/11 17:19 | 17:46 | claude-opus-5-5 | 48 | 27,551 | 36,896 | 4,114,269 | 4,178,764 |
+| **Total** | | | | **1,430** | **516,085** | **1,088,116** | **68,475,773** | **70,081,404** |
 
 
 
@@ -46,3 +47,5 @@ Sessão de 19/11 a partir das 21:21 (fechamento do dia): quinta e última parte 
 Sessão de 21/11 a partir das 16:09 (retrato das métricas e issue #33): os tokens foram somados do `message.usage` das respostas do agente na transcrição, uma vez por mensagem, até 19:48:56Z (16:48). Ficaram de fora os cerca de 10 mil tokens do subagente que leu o slide da aula 09. A exportação foi feita com um script que mantém só as mensagens `user`/`assistant` até o corte, descarta os blocos de raciocínio (`thinking`) e mascara com `***` e-mails, senhas, tokens e senhas em URLs. O prefixo do e-mail pessoal, que aparece sozinho, também foi mascarado. Com o corte em 19:48:56Z, foram 50 blocos de raciocínio descartados e 57 máscaras. O `gitleaks` (com o `.gitleaks.toml`) não encontrou nada no arquivo exportado. A exportação não inclui o commit desta sessão.
 
 Sessão de 21/11 a partir das 16:48 (testes de integração do auth, #3, e issue #35): segunda parte da mesma sessão, separada pelo `timestamp` (entradas depois de `2026-11-21T19:48:56.875Z`). A exportação e o mascaramento foram iguais aos da parte das 16:09, e os tokens foram somados do mesmo jeito. Nesta parte, nenhum e-mail ficou sem máscara: os textos com `@` que sobraram são decoradores de código (`@pytest.fixture`, `@router.post`). O `gitleaks` não encontrou nada. A linha da parte das 16:09 também está aqui, igual à do PR #34, para o total ficar certo depois dos dois merges. A exportação vai até 17:19 e não inclui o commit desta parte.
+
+Sessão de 21/11 a partir das 17:19 (testes de integração do barbers, #3, e issue #37): terceira parte da mesma sessão, separada pelo `timestamp` (entradas depois de `2026-11-21T20:19:56Z`). A exportação, o mascaramento e a soma dos tokens foram iguais aos das partes anteriores. Os textos com `@` que sobraram são decoradores de código, e o `gitleaks` não encontrou nada. A linha da parte das 16:48 também está aqui, igual à do PR #36, para o total ficar certo depois dos dois merges. A exportação vai até 17:46 e não inclui o commit desta parte.

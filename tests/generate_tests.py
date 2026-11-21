@@ -3,7 +3,7 @@ import os
 # Módulos que ainda têm o test_<módulo>.py gerado. Cada módulo sai daqui quando ganha testes de
 # integração reais e o arquivo gerado dele é apagado (#3, SPEC/2026-11-21-testes-integracao-auth.md).
 MODULES = [
-    'barbers', 'services', 'appointments', 'products',
+    'services', 'appointments', 'products',
     'subscriptions', 'finance', 'expenses', 'dashboard',
     'walkin', 'gallery', 'loyalty', 'notifications'
 ]
