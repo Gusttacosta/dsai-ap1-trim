@@ -1,0 +1,28 @@
+# Configuração do gitleaks (#33, SPEC/2026-11-21-gitleaks-allowlist.md).
+# Usa todas as regras padrão e libera só dois falsos positivos conhecidos da
+# regra generic-api-key. Cada exceção exige o caminho E o valor capturado.
+
+title = "dsai-ap2-trim"
+
+[extend]
+useDefault = true
+
+# Transcrições das sessões: o campo "betas" lista recursos beta da API
+# ("oauth-2025-04-20","interleaved-thinking-2025-05-14",...). A regra genérica
+# lê o primeiro item como nome de chave e o seguinte como valor secreto.
+[[allowlists]]
+description = "Nomes de recursos beta com data nas transcricoes de sessao"
+targetRules = ["generic-api-key"]
+condition = "AND"
+paths = ['''^prompts/sessoes/[^/]+\.jsonl$''']
+regexTarget = "secret"
+regexes = ['''^[a-z][a-z0-9-]*-20\d{2}-\d{2}-\d{2}$''']
+
+# Senhas das fixtures dos testes, usadas só no banco descartável.
+[[allowlists]]
+description = "Senhas de fixture dos testes"
+targetRules = ["generic-api-key"]
+condition = "AND"
+paths = ['''^tests/[^/]+\.py$''']
+regexTarget = "secret"
+regexes = ['''^(senhaForte123|outraSenha456)$''']
