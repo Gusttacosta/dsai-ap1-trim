@@ -22,7 +22,8 @@ Tokens extraídos do campo `usage` das transcrições do Claude Code (mensagens 
 | `2026-11-21-1609-claudecode.jsonl` | 21/11 16:09 | 16:48 | claude-opus-5-5 | 142 | 41,169 | 81,416 | 4,617,099 | 4,739,826 |
 | `2026-11-21-1648-claudecode.jsonl` | 21/11 16:48 | 17:19 | claude-opus-5-5 | 84 | 36,078 | 54,462 | 4,840,244 | 4,930,868 |
 | `2026-11-21-1719-claudecode.jsonl` | 21/11 17:19 | 17:46 | claude-opus-5-5 | 48 | 27,551 | 36,896 | 4,114,269 | 4,178,764 |
-| **Total** | | | | **1,430** | **516,085** | **1,088,116** | **68,475,773** | **70,081,404** |
+| `2026-11-21-1746-claudecode.jsonl` | 21/11 17:46 | 18:07 | claude-opus-5-5 | 32 | 22,252 | 29,389 | 3,129,116 | 3,180,789 |
+| **Total** | | | | **1,462** | **538,337** | **1,117,505** | **71,604,889** | **73,262,193** |
 
 
 
@@ -49,3 +50,5 @@ Sessão de 21/11 a partir das 16:09 (retrato das métricas e issue #33): os toke
 Sessão de 21/11 a partir das 16:48 (testes de integração do auth, #3, e issue #35): segunda parte da mesma sessão, separada pelo `timestamp` (entradas depois de `2026-11-21T19:48:56.875Z`). A exportação e o mascaramento foram iguais aos da parte das 16:09, e os tokens foram somados do mesmo jeito. Nesta parte, nenhum e-mail ficou sem máscara: os textos com `@` que sobraram são decoradores de código (`@pytest.fixture`, `@router.post`). O `gitleaks` não encontrou nada. A linha da parte das 16:09 também está aqui, igual à do PR #34, para o total ficar certo depois dos dois merges. A exportação vai até 17:19 e não inclui o commit desta parte.
 
 Sessão de 21/11 a partir das 17:19 (testes de integração do barbers, #3, e issue #37): terceira parte da mesma sessão, separada pelo `timestamp` (entradas depois de `2026-11-21T20:19:56Z`). A exportação, o mascaramento e a soma dos tokens foram iguais aos das partes anteriores. Os textos com `@` que sobraram são decoradores de código, e o `gitleaks` não encontrou nada. A linha da parte das 16:48 também está aqui, igual à do PR #36, para o total ficar certo depois dos dois merges. A exportação vai até 17:46 e não inclui o commit desta parte.
+
+Sessão de 21/11 a partir das 17:46 (testes de integração do services, #3, e issue #39): quarta parte da mesma sessão, separada pelo `timestamp` (entradas depois de `2026-11-21T20:46:51Z`). A exportação, o mascaramento e a soma dos tokens foram iguais aos das partes anteriores. Os textos com `@` que sobraram são decoradores de código, e o `gitleaks` não encontrou nada. A exportação vai até 18:07 e não inclui o commit desta parte.
