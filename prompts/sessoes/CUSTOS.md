@@ -23,7 +23,8 @@ Tokens extraídos do campo `usage` das transcrições do Claude Code (mensagens 
 | `2026-11-21-1648-claudecode.jsonl` | 21/11 16:48 | 17:19 | claude-opus-5-5 | 84 | 36,078 | 54,462 | 4,840,244 | 4,930,868 |
 | `2026-11-21-1719-claudecode.jsonl` | 21/11 17:19 | 17:46 | claude-opus-5-5 | 48 | 27,551 | 36,896 | 4,114,269 | 4,178,764 |
 | `2026-11-21-1746-claudecode.jsonl` | 21/11 17:46 | 18:07 | claude-opus-5-5 | 32 | 22,252 | 29,389 | 3,129,116 | 3,180,789 |
-| **Total** | | | | **1,462** | **538,337** | **1,117,505** | **71,604,889** | **73,262,193** |
+| `2026-11-21-1807-claudecode.jsonl` | 21/11 18:07 | 18:30 | claude-opus-5-5 | 42 | 12,596 | 16,158 | 4,775,529 | 4,804,325 |
+| **Total** | | | | **1,504** | **550,933** | **1,133,663** | **76,380,418** | **78,066,518** |
 
 
 
@@ -52,3 +53,5 @@ Sessão de 21/11 a partir das 16:48 (testes de integração do auth, #3, e issue
 Sessão de 21/11 a partir das 17:19 (testes de integração do barbers, #3, e issue #37): terceira parte da mesma sessão, separada pelo `timestamp` (entradas depois de `2026-11-21T20:19:56Z`). A exportação, o mascaramento e a soma dos tokens foram iguais aos das partes anteriores. Os textos com `@` que sobraram são decoradores de código, e o `gitleaks` não encontrou nada. A linha da parte das 16:48 também está aqui, igual à do PR #36, para o total ficar certo depois dos dois merges. A exportação vai até 17:46 e não inclui o commit desta parte.
 
 Sessão de 21/11 a partir das 17:46 (testes de integração do services, #3, e issue #39): quarta parte da mesma sessão, separada pelo `timestamp` (entradas depois de `2026-11-21T20:46:51Z`). A exportação, o mascaramento e a soma dos tokens foram iguais aos das partes anteriores. Os textos com `@` que sobraram são decoradores de código, e o `gitleaks` não encontrou nada. A exportação vai até 18:07 e não inclui o commit desta parte.
+
+Sessão de 21/11 a partir das 18:07 (conflitos do #38 e do #40, troca da base do #40 e varredura do fim do dia): quinta e última parte da mesma sessão, separada pelo `timestamp` (entradas depois de `2026-11-21T21:07:05Z`). A exportação, o mascaramento e a soma dos tokens foram iguais aos das partes anteriores. Nesta parte não sobrou nenhum texto com `@`, e o `gitleaks` não encontrou nada. A exportação vai até 18:30 e não inclui o commit desta parte.
