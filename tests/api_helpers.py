@@ -7,6 +7,7 @@ pelo login. Os testes do próprio login e do cadastro ficam em tests/test_auth_i
 
 from src.backend.modules.auth import security
 from src.backend.modules.auth.models import User, UserRole
+from src.backend.modules.barbers.models import Barber
 
 
 async def add_user(maker, email, role=UserRole.CLIENT, *, full_name=None, is_active=True, avatar_url=None):
@@ -23,6 +24,16 @@ async def add_user(maker, email, role=UserRole.CLIENT, *, full_name=None, is_act
         db.add(user)
         await db.commit()
         return user
+
+
+async def add_barber(maker, email, *, full_name=None, is_active=True, user_active=True, commission_rate=50):
+    """Grava um usuário `barber` com o perfil de barbeiro (sem escala) e devolve o `Barber`."""
+    user = await add_user(maker, email, UserRole.BARBER, full_name=full_name, is_active=user_active)
+    async with maker() as db:
+        barber = Barber(user_id=user.id, is_active=is_active, commission_rate=commission_rate)
+        db.add(barber)
+        await db.commit()
+        return barber
 
 
 def token_for(user):
