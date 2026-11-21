@@ -173,8 +173,9 @@ Spec: SPEC/<arquivo-da-spec>.md
 
 - `.github/workflows/ci.yml` roda em todo `push` e `pull_request` para a `main`:
   - **backend:** Python 3.12, `pip install -r requirements.txt`, import de `src.backend.main` e `pytest`;
-  - **frontend:** Node LTS, `npm ci` e `npm run build` em `src/frontend`.
-- Próximas etapas previstas (cada uma em PR próprio): banco PostgreSQL de teste na CI, cobertura do diff, `jscpd`, `gitleaks`, `npm audit`.
+  - **frontend:** Node LTS, `npm ci` e `npm run build` em `src/frontend`;
+  - **gitleaks:** histórico inteiro, com as exceções de `.gitleaks.toml` (só falsos positivos conhecidos, exigindo caminho e valor). Um falso positivo novo vira uma exceção restrita nesse arquivo, nunca um caminho liberado inteiro.
+- Próximas etapas previstas (cada uma em PR próprio): banco PostgreSQL de teste na CI, cobertura do diff, `jscpd`, `npm audit`.
 
 ---
 
