@@ -47,6 +47,32 @@ jobs:
       - name: Testes
         run: pytest -q
 
+  # Segredos no histórico inteiro, com as exceções de .gitleaks.toml (#33).
+  gitleaks:
+    name: Segredos (gitleaks)
+    runs-on: ubuntu-latest
+    env:
+      GITLEAKS_VERSION: 8.30.1
+      # SHA-256 de gitleaks_8.30.1_linux_x64.tar.gz (gitleaks_8.30.1_checksums.txt da release).
+      GITLEAKS_SHA256: 551f6fc83ea457d62a0d98237cbad105af8d557003051f41f3e7ca7b3f2470eb
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Instalar gitleaks
+        run: |
+          arquivo="gitleaks_${GITLEAKS_VERSION}_linux_x64.tar.gz"
+          curl -sSfL -o "$arquivo" \
+            "https://github.com/gitleaks/gitleaks/releases/download/v${GITLEAKS_VERSION}/${arquivo}"
+          echo "${GITLEAKS_SHA256}  ${arquivo}" | sha256sum --check --strict
+          tar -xzf "$arquivo" -C "$RUNNER_TEMP" gitleaks
+          "$RUNNER_TEMP/gitleaks" version
+
+      - name: Procurar segredos
+        run: |
+          "$RUNNER_TEMP/gitleaks" git . --redact --no-banner --config .gitleaks.toml
+
   frontend:
     name: Frontend (Node 22)
     runs-on: ubuntu-latest
