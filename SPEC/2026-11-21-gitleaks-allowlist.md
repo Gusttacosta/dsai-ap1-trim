@@ -35,7 +35,8 @@ Solução:
   regras padrão (chaves da AWS, do GitHub, da Anthropic, chaves privadas etc.) não ganham exceção.
 - **Job `Segredos (gitleaks)` na CI**, em todo push e PR para a `main`. Ele faz o checkout do
   histórico inteiro (`fetch-depth: 0`), baixa o binário do `gitleaks` 8.30.1 das releases oficiais,
-  confere o SHA-256 com o arquivo de checksums da mesma release e roda
+  confere o SHA-256 com o valor fixado no próprio workflow (o mesmo do
+  `gitleaks_8.30.1_checksums.txt` da release, copiado uma vez) e roda
   `gitleaks git . --redact --config .gitleaks.toml`. Qualquer achado falha o build, sem expor o
   valor no log.
 
