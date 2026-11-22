@@ -30,8 +30,14 @@ jobs:
     env:
       # Banco descartável só da CI, usado pelos testes que precisam de PostgreSQL.
       TEST_DATABASE_URL: postgresql+asyncpg://postgres:postgres@localhost:5432/trim_test
+      # Ferramentas de cobertura só da CI, fora do requirements.txt da produção (#41).
+      PYTEST_COV_VERSION: 7.1.0
+      DIFF_COVER_VERSION: 11.0.4
     steps:
+      # Histórico inteiro, para o diff-cover comparar com origin/main.
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - uses: actions/setup-python@v5
         with:
@@ -39,13 +45,19 @@ jobs:
           cache: pip
 
       - name: Instalar dependências
-        run: pip install -r requirements.txt
+        run: |
+          pip install -r requirements.txt
+          pip install "pytest-cov==${PYTEST_COV_VERSION}" "diff-cover==${DIFF_COVER_VERSION}"
 
       - name: Importar a aplicação
         run: python -c "import src.backend.main"
 
-      - name: Testes
-        run: pytest -q
+      - name: Testes com cobertura
+        run: pytest -q --cov=src/backend --cov-report=term --cov-report=xml:coverage.xml
+
+      # Falha se as linhas novas do backend em relação à main tiverem menos de 70% de cobertura.
+      - name: Cobertura do código novo (diff-cover)
+        run: diff-cover coverage.xml --compare-branch=origin/main --fail-under=70
 
   # Segredos no histórico inteiro, com as exceções de .gitleaks.toml (#33).
   gitleaks:
