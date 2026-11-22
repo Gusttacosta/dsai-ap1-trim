@@ -24,9 +24,11 @@ Tokens extraídos do campo `usage` das transcrições do Claude Code (mensagens 
 | `2026-11-21-1719-claudecode.jsonl` | 21/11 17:19 | 17:46 | claude-opus-5-5 | 48 | 27,551 | 36,896 | 4,114,269 | 4,178,764 |
 | `2026-11-21-1746-claudecode.jsonl` | 21/11 17:46 | 18:07 | claude-opus-5-5 | 32 | 22,252 | 29,389 | 3,129,116 | 3,180,789 |
 | `2026-11-21-1807-claudecode.jsonl` | 21/11 18:07 | 18:30 | claude-opus-5-5 | 42 | 12,596 | 16,158 | 4,775,529 | 4,804,325 |
-| **Total** | | | | **1,504** | **550,933** | **1,133,663** | **76,380,418** | **78,066,518** |
+| `2026-11-21-2356-claudecode.jsonl` | 21/11 23:56 | 00:47 (22/11) | claude-opus-5-5 | 124 | 48,755 | 101,420 | 4,896,405 | 5,046,704 |
+| **Total** | | | | **1,628** | **599,688** | **1,235,083** | **81,276,823** | **83,113,222** |
 
 
+Sessão de 21/11 23:56 a 22/11 00:47 (PRs #43 e #44): os commits do agente são de 22/11. Exportada pelo terminal, porque o pedido de exportação ao próprio agente foi bloqueado de novo pelo filtro de segurança do modelo (reasoning_extraction). Mascaramento com jq dentro das strings do JSON, incluindo a parte antes do @ do e-mail pessoal. A exportação vai até 00:47 e não inclui o commit desta sessão.
 
 Segredos mascarados na exportação: tokens JWT locais e e-mail pessoal (substituídos por `[jwt-removido]` / `[email-removido]`). Nenhuma outra alteração foi feita no texto. Nas sessões de 08/11 e 10/11, os commits foram reescritos depois com o e-mail noreply do GitHub (`<id>+Severino-Sobrinho@users.noreply.github.com`), que é público e por isso aparece nas transcrições sem máscara.
 
