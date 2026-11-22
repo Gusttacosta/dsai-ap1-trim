@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, Routes, Route, Link, useLocation } from 'react-router-dom';
 import styles from './Dashboard.module.css';
-import api from '../api';
+import api, { logout } from '../api';
 import { canFinish } from '../utils/appointmentStatus';
 
 import AdminStore from './AdminStore';
@@ -139,8 +139,8 @@ const Dashboard = () => {
     return `${styles.navItem} ${location.pathname === path ? styles.active : ''}`;
   };
 
-  const handleLogout = () => {
-    localStorage.removeItem('token');
+  const handleLogout = async () => {
+    await logout();
     navigate('/login');
   };
 

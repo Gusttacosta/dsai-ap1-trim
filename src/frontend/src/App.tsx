@@ -9,6 +9,7 @@ import Fidelidade from './pages/Fidelidade';
 
 import Login from './pages/Login';
 import LoginAdmin from './pages/LoginAdmin';
+import { logout } from './api';
 
 const Navbar = () => {
   const navigate = useNavigate();
@@ -19,8 +20,8 @@ const Navbar = () => {
     setIsAuthenticated(!!localStorage.getItem('token'));
   }, [location]);
 
-  const handleLogout = () => {
-    localStorage.removeItem('token');
+  const handleLogout = async () => {
+    await logout();
     setIsAuthenticated(false);
     navigate('/login');
   };
