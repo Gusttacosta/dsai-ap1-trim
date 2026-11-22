@@ -205,3 +205,27 @@ jobs:
           done < alertas.tsv
           echo "$(wc -l < alertas.tsv) alertas no pip-audit, ${criticos} críticos."
           [ "$criticos" -eq 0 ]
+
+  # Duplicação em src/, só como relatório: este job não falha por duplicação (#41).
+  duplicacao:
+    name: Duplicação (jscpd, relatório)
+    runs-on: ubuntu-latest
+    env:
+      JSCPD_VERSION: 5.4.3
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: jscpd em src/
+        run: |
+          npx --yes "jscpd@${JSCPD_VERSION}" src \
+            --ignore "**/node_modules/**,**/dist/**,**/__pycache__/**,**/package-lock.json" \
+            --reporters console,markdown \
+            --output jscpd-report \
+            --exit-code 0 || echo "::warning::O jscpd terminou com erro; o relatório pode estar incompleto."
+          if [ -f jscpd-report/jscpd-report.md ]; then
+            cat jscpd-report/jscpd-report.md >> "$GITHUB_STEP_SUMMARY"
+          fi
