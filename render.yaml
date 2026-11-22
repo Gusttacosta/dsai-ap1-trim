@@ -36,6 +36,10 @@ services:
       # Origem do trim-web, por exemplo https://trim-web.onrender.com
       - key: CORS_ORIGINS
         sync: false
+      # O trim-web e a API ficam em sites diferentes (onrender.com está na Public Suffix List):
+      # o cookie do refresh precisa de SameSite=None para ir no fetch.
+      - key: REFRESH_COOKIE_SAMESITE
+        value: none
       # Só durante o seed; apague depois (ver README).
       - key: SEED_SECRET
         sync: false
