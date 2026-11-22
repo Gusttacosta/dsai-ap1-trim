@@ -8,6 +8,7 @@ import AdminStore from './AdminStore';
 import AdminServices from './AdminServices';
 import AdminFinance from './AdminFinance';
 import AdminNotifications from './AdminNotifications';
+import Account from './Account';
 
 const Overview = ({ user }: { user: any }) => {
   const [queue, setQueue] = useState<any[]>([]);
@@ -162,6 +163,7 @@ const Dashboard = () => {
             <Link to="/admin/notificacoes" className={getNavClass('/admin/notificacoes')}>Notificações</Link>
           </>
         )}
+        <Link to="/admin/conta" className={getNavClass('/admin/conta')}>Minha conta</Link>
         <div style={{ flex: 1 }} />
         <button onClick={handleLogout} style={{ padding: '1rem', background: 'transparent', border: '1px solid var(--color-border)', color: '#fff', cursor: 'pointer', borderRadius: '8px' }}>Sair</button>
       </div>
@@ -170,6 +172,7 @@ const Dashboard = () => {
       <div className={styles.mainArea}>
         <Routes>
           <Route path="/" element={<Overview user={user} />} />
+          <Route path="/conta" element={<Account loginPath="/admin/login" />} />
           {user.role === 'admin' && (
             <>
               <Route path="/loja" element={<AdminStore />} />

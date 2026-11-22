@@ -9,6 +9,7 @@ import Fidelidade from './pages/Fidelidade';
 
 import Login from './pages/Login';
 import LoginAdmin from './pages/LoginAdmin';
+import Account from './pages/Account';
 import { logout } from './api';
 
 const Navbar = () => {
@@ -33,6 +34,9 @@ const Navbar = () => {
       <Link to="/club" style={{ color: 'var(--color-text-secondary)' }}>Trim Club</Link>
       <Link to="/fidelidade" style={{ color: 'var(--color-text-secondary)' }}>Prêmios</Link>
       <div style={{ flex: 1 }} />
+      {isAuthenticated && (
+        <Link to="/conta" style={{ color: 'var(--color-text-secondary)' }}>Minha conta</Link>
+      )}
       {isAuthenticated ? (
         <button onClick={handleLogout} style={{ padding: '0.5rem 1rem', background: 'transparent', border: '1px solid var(--color-border)', color: '#fff', borderRadius: '8px', fontWeight: 'bold', cursor: 'pointer' }}>Sair</button>
       ) : (
@@ -67,6 +71,7 @@ const App = () => {
                   <Route path="/galeria" element={<Gallery />} />
                   <Route path="/club" element={<TrimClub />} />
                   <Route path="/fidelidade" element={<Fidelidade />} />
+                  <Route path="/conta" element={<Account loginPath="/login" />} />
                 </Routes>
               </main>
             </>
