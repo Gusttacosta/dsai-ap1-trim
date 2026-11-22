@@ -150,3 +150,58 @@ jobs:
             echo "Agent:, Spec: e Co-Authored-By: devem ficar juntos no último parágrafo, sem linha em branco."
             exit 1
           fi
+
+  # Alertas de dependências: falha só em vulnerabilidade crítica (#41).
+  dependencias:
+    name: Dependências (npm audit e pip-audit)
+    runs-on: ubuntu-latest
+    env:
+      PIP_AUDIT_VERSION: 2.10.1
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: npm audit (frontend, falha só em críticas)
+        working-directory: src/frontend
+        run: npm audit --audit-level=critical
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Instalar pip-audit
+        run: pip install "pip-audit==${PIP_AUDIT_VERSION}"
+
+      # O pip-audit não informa a severidade: ela vem da base de advisories do GitHub.
+      - name: pip-audit (backend, falha só em críticas)
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          pip-audit -r requirements.txt --format json --output pip-audit.json || true
+          if ! jq -e '.dependencies' pip-audit.json > /dev/null 2>&1; then
+            echo "::error::O pip-audit não gerou o relatório JSON."
+            exit 1
+          fi
+          jq -r '.dependencies[] | .name as $nome | .version as $versao | (.vulns // [])[]
+            | [$nome, $versao, .id, ([.id] + (.aliases // []) | map(select(startswith("GHSA-"))) | first // "-")]
+            | @tsv' pip-audit.json | sort -u > alertas.tsv
+          criticos=0
+          while IFS=$'\t' read -r nome versao id ghsa; do
+            severidade=desconhecida
+            if [ "$ghsa" != "-" ]; then
+              severidade=$(gh api "/advisories/${ghsa}" --jq .severity 2>/dev/null || echo desconhecida)
+            fi
+            echo "${severidade}	${nome} ${versao}	${id}	${ghsa}"
+            if [ "$severidade" = "critical" ]; then
+              criticos=$((criticos + 1))
+              echo "::error::Vulnerabilidade crítica: ${nome} ${versao} (${id} / ${ghsa})"
+            elif [ "$severidade" = "desconhecida" ]; then
+              echo "::warning::Severidade desconhecida: ${nome} ${versao} (${id})"
+            fi
+          done < alertas.tsv
+          echo "$(wc -l < alertas.tsv) alertas no pip-audit, ${criticos} críticos."
+          [ "$criticos" -eq 0 ]
