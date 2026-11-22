@@ -14,14 +14,22 @@ from src.backend.modules.auth.models import User
 from src.backend.modules.auth.schemas import (
     ForgotPasswordRequest,
     MessageResponse,
+    PasswordChangeRequest,
     ResetPasswordRequest,
     TokenResponse,
     UserLoginRequest,
     UserRegisterRequest,
     UserResponse,
+    UserUpdateRequest,
     VerifyEmailRequest,
 )
-from src.backend.modules.auth.service import AuthService, InvalidRefreshToken, IssuedTokens
+from src.backend.modules.auth.service import (
+    AuthService,
+    InvalidRefreshToken,
+    IssuedTokens,
+    SamePassword,
+    WrongCurrentPassword,
+)
 
 router = APIRouter()
 
@@ -165,6 +173,39 @@ async def logout(
 async def get_me(current_user: User = Depends(get_current_user)):
     """Retorna os dados do próprio usuário autenticado."""
     return current_user
+
+
+@router.put("/me", response_model=UserResponse, summary="Atualiza o próprio perfil")
+async def update_me(
+    data: UserUpdateRequest,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Atualiza nome, telefone e foto do usuário logado (só os campos enviados)."""
+    return await AuthService(db).update_profile(current_user, data)
+
+
+@router.put("/me/password", response_model=MessageResponse, summary="Troca a própria senha")
+async def change_my_password(
+    data: PasswordChangeRequest,
+    refresh_token: str | None = Cookie(default=None),
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Troca a senha conferindo a atual e encerra as outras sessões do usuário."""
+    try:
+        await AuthService(db).change_password(
+            current_user, data.current_password, data.new_password, refresh_token
+        )
+    except WrongCurrentPassword:
+        # 400, e não 401: um 401 faria o frontend tentar o refresh e repetir o pedido.
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Senha atual incorreta.")
+    except SamePassword:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="A nova senha precisa ser diferente da atual.",
+        )
+    return MessageResponse(message="Senha alterada. As outras sessões foram encerradas.")
 
 
 @router.post("/verify-email", response_model=MessageResponse)
