@@ -13,7 +13,7 @@ from datetime import datetime, timedelta, timezone
 import bcrypt
 import pytest
 from fastapi import HTTPException
-from jose import jwt
+import jwt
 from sqlalchemy import func, select, update
 
 from src.backend.config import settings
