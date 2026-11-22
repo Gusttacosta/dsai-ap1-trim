@@ -4,11 +4,11 @@ Trim — Auth Router
 Definição dos endpoints REST para o módulo de autenticação.
 """
 
-from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
+from fastapi import APIRouter, Cookie, Depends, HTTPException, Request, Response, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from src.backend.config import settings
 from src.backend.database import get_db
-from src.backend.modules.auth import security
 from src.backend.modules.auth.dependencies import get_current_user
 from src.backend.modules.auth.models import User
 from src.backend.modules.auth.schemas import (
@@ -21,9 +21,56 @@ from src.backend.modules.auth.schemas import (
     UserResponse,
     VerifyEmailRequest,
 )
-from src.backend.modules.auth.service import AuthService
+from src.backend.modules.auth.service import AuthService, InvalidRefreshToken, IssuedTokens
 
 router = APIRouter()
+
+REFRESH_COOKIE = "refresh_token"
+# O cookie só vai para as rotas de /api/auth (refresh e logout), não para o resto da API.
+REFRESH_COOKIE_PATH = "/api/auth"
+
+
+def set_refresh_cookie(response: Response, tokens: IssuedTokens) -> None:
+    """Grava o refresh token em cookie httpOnly com a validade dele (regra 4 da spec)."""
+    response.set_cookie(
+        key=REFRESH_COOKIE,
+        value=tokens.refresh_token,
+        max_age=tokens.refresh_max_age,
+        path=REFRESH_COOKIE_PATH,
+        httponly=True,
+        secure=True,
+        samesite=settings.refresh_cookie_samesite,
+    )
+
+
+def clear_refresh_cookie(response: Response) -> None:
+    """Apaga o cookie com os mesmos atributos com que ele foi gravado."""
+    response.delete_cookie(
+        key=REFRESH_COOKIE,
+        path=REFRESH_COOKIE_PATH,
+        httponly=True,
+        secure=True,
+        samesite=settings.refresh_cookie_samesite,
+    )
+
+
+def token_response(response: Response, tokens: IssuedTokens) -> TokenResponse:
+    set_refresh_cookie(response, tokens)
+    return TokenResponse(
+        access_token=tokens.access_token,
+        expires_in=tokens.expires_in,
+        user=tokens.user,
+    )
+
+
+def require_allowed_origin(request: Request) -> None:
+    """Recusa pedidos de outros sites às rotas que usam o cookie (SameSite=None não os barra)."""
+    origin = request.headers.get("origin")
+    if origin is not None and origin not in settings.cors_origins_list:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Origem não permitida.",
+        )
 
 
 @router.post(
@@ -49,25 +96,7 @@ async def register(
             status_code=status.HTTP_400_BAD_REQUEST, detail=str(e)
         )
 
-    # Gera tokens
-    payload = {"user_id": str(user.id), "email": user.email, "role": user.role}
-    access_token, expires_in = security.create_access_token(payload, user.role)
-    refresh_token, _ = security.create_refresh_token(payload, user.role)
-
-    # Configura o refresh token em cookie httpOnly
-    response.set_cookie(
-        key="refresh_token",
-        value=refresh_token,
-        httponly=True,
-        secure=True,
-        samesite="lax",
-    )
-
-    return TokenResponse(
-        access_token=access_token,
-        expires_in=expires_in,
-        user=user,
-    )
+    return token_response(response, await service.issue_tokens(user))
 
 
 @router.post("/login", response_model=TokenResponse, summary="Faz login")
@@ -90,29 +119,45 @@ async def login(
             headers={"WWW-Authenticate": "Bearer"},
         )
 
-    payload = {"user_id": str(user.id), "email": user.email, "role": user.role}
-    access_token, expires_in = security.create_access_token(payload, user.role)
-    refresh_token, _ = security.create_refresh_token(payload, user.role)
-
-    response.set_cookie(
-        key="refresh_token",
-        value=refresh_token,
-        httponly=True,
-        secure=True,
-        samesite="lax",
-    )
-
-    return TokenResponse(
-        access_token=access_token,
-        expires_in=expires_in,
-        user=user,
-    )
+    return token_response(response, await service.issue_tokens(user))
 
 
-@router.post("/logout", response_model=MessageResponse, summary="Faz logout")
-async def logout(response: Response):
-    """Invalida a sessão removendo o cookie do refresh token."""
-    response.delete_cookie("refresh_token")
+@router.post(
+    "/refresh",
+    response_model=TokenResponse,
+    summary="Renova o access token",
+    dependencies=[Depends(require_allowed_origin)],
+)
+async def refresh(
+    response: Response,
+    refresh_token: str | None = Cookie(default=None),
+    db: AsyncSession = Depends(get_db),
+):
+    """Troca o refresh token do cookie por um novo e devolve um access token novo."""
+    try:
+        tokens = await AuthService(db).rotate_refresh_token(refresh_token)
+    except InvalidRefreshToken:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Sessão inválida ou expirada. Entre novamente.",
+        )
+    return token_response(response, tokens)
+
+
+@router.post(
+    "/logout",
+    response_model=MessageResponse,
+    summary="Faz logout",
+    dependencies=[Depends(require_allowed_origin)],
+)
+async def logout(
+    response: Response,
+    refresh_token: str | None = Cookie(default=None),
+    db: AsyncSession = Depends(get_db),
+):
+    """Revoga a sessão do refresh token no servidor e apaga o cookie."""
+    await AuthService(db).logout(refresh_token)
+    clear_refresh_cookie(response)
     return MessageResponse(message="Logout efetuado com sucesso.")
 
 

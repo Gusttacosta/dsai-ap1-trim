@@ -5,6 +5,8 @@ Centraliza todas as configurações do backend via variáveis de ambiente.
 Usa pydantic-settings para validação e tipagem automática.
 """
 
+from typing import Literal
+
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -52,6 +54,9 @@ class Settings(BaseSettings):
     secret_key: str = "dev-secret-change-in-production"
     algorithm: str = "HS256"
     access_token_expire_minutes: int = 1440  # 24 horas
+    # SameSite do cookie refresh_token. "lax" serve quando frontend e API são o mesmo site
+    # (desenvolvimento local). No Render eles ficam em sites diferentes e precisam de "none".
+    refresh_cookie_samesite: Literal["lax", "strict", "none"] = "lax"
 
     # ── Seed (rotas /api/dev) ────────────────────────────
     # Vazias = rotas de seed desligadas (404) e admin de demonstração não criado.

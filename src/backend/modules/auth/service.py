@@ -7,6 +7,7 @@ Manipula usuários, tokens, e controla taxa de login.
 
 import logging
 import uuid
+from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
 from typing import Optional
 
@@ -15,10 +16,36 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.backend.config import settings
 from src.backend.modules.auth import security
-from src.backend.modules.auth.models import EmailVerificationToken, PasswordResetToken, User, UserRole
+from src.backend.modules.auth.models import (
+    EmailVerificationToken,
+    PasswordResetToken,
+    RefreshToken,
+    User,
+    UserRole,
+)
 from src.backend.modules.auth.schemas import UserRegisterRequest
 
 logger = logging.getLogger(__name__)
+
+# Um refresh token trocado há menos que isto e apresentado de novo é tratado como corrida entre
+# abas, não como reuso de um token copiado (SPEC/2026-11-22-auth-refresh-logout.md).
+REFRESH_REUSE_GRACE = timedelta(seconds=10)
+
+
+class InvalidRefreshToken(Exception):
+    """O refresh token não serve para renovar a sessão (ausente, inválido, revogado ou vencido)."""
+
+
+@dataclass
+class IssuedTokens:
+    """Tokens emitidos no login, no cadastro ou no refresh."""
+
+    user: User
+    access_token: str
+    expires_in: int
+    refresh_token: str
+    refresh_max_age: int
+
 
 TOKEN_OMITTED = "envio de email nao configurado (token omitido fora de development)."
 
@@ -187,6 +214,95 @@ class AuthService:
         hashed_password = security.get_password_hash(new_password)
         stmt_update_user = update(User).where(User.id == token_obj.user_id).values(hashed_password=hashed_password)
         await self.db.execute(stmt_update_user)
-        
+
+        # Quem redefiniu a senha pode estar tirando alguém da conta: encerra todas as sessões.
+        await self.revoke_user_sessions(token_obj.user_id)
+
         await self.db.commit()
         return True
+
+    # ── sessões (refresh tokens) ─────────────────────────
+
+    async def issue_tokens(self, user: User, family_id: uuid.UUID | None = None) -> IssuedTokens:
+        """Grava um refresh token novo (numa família nova ou na informada) e emite os dois JWT."""
+        expires_at = datetime.now(timezone.utc) + security.refresh_token_lifetime(user.role)
+        row = RefreshToken(
+            id=uuid.uuid4(),
+            user_id=user.id,
+            family_id=family_id or uuid.uuid4(),
+            expires_at=expires_at,
+        )
+        self.db.add(row)
+
+        payload = {"user_id": str(user.id), "email": user.email, "role": user.role}
+        access_token, expires_in = security.create_access_token(payload, user.role)
+        refresh_token, max_age = security.create_refresh_token(
+            payload, user.role, jti=str(row.id), expire=expires_at
+        )
+        await self.db.commit()
+        await self.db.refresh(user)
+        return IssuedTokens(user, access_token, expires_in, refresh_token, max_age)
+
+    async def _refresh_row(self, token: str | None, *, lock: bool = False) -> RefreshToken | None:
+        """Linha de `refresh_tokens` do JWT, ou None se ele não for um refresh token nosso."""
+        payload = security.decode_token(token) if token else None
+        if not payload or payload.get("type") != "refresh":
+            return None
+        try:
+            jti = uuid.UUID(str(payload.get("jti")))
+        except ValueError:
+            return None
+        stmt = select(RefreshToken).where(RefreshToken.id == jti)
+        if lock:
+            stmt = stmt.with_for_update()
+        return (await self.db.execute(stmt)).scalar_one_or_none()
+
+    async def rotate_refresh_token(self, token: str | None) -> IssuedTokens:
+        """Troca um refresh token válido por um novo na mesma família (rotação).
+
+        Um token já trocado indica cópia: a família inteira é revogada, salvo dentro da janela de
+        corrida `REFRESH_REUSE_GRACE`. Levanta `InvalidRefreshToken` em qualquer recusa.
+        """
+        row = await self._refresh_row(token, lock=True)
+        if row is None:
+            raise InvalidRefreshToken()
+
+        now = datetime.now(timezone.utc)
+        if row.revoked_at is not None:
+            if now - row.revoked_at > REFRESH_REUSE_GRACE:
+                logger.warning("Reuso de refresh token; sessao %s revogada", row.family_id)
+                await self.revoke_family(row.family_id)
+                await self.db.commit()
+            raise InvalidRefreshToken()
+        if row.expires_at <= now:
+            raise InvalidRefreshToken()
+
+        user = await self.get_user_by_id(row.user_id)
+        if user is None or not user.is_active:
+            raise InvalidRefreshToken()
+
+        row.revoked_at = now
+        return await self.issue_tokens(user, family_id=row.family_id)
+
+    async def logout(self, token: str | None) -> None:
+        """Revoga a sessão (família) do refresh token, se ele for válido. Nunca falha."""
+        row = await self._refresh_row(token)
+        if row is not None:
+            await self.revoke_family(row.family_id)
+            await self.db.commit()
+
+    async def revoke_family(self, family_id: uuid.UUID) -> None:
+        """Revoga todos os tokens ainda ativos de uma sessão."""
+        await self.db.execute(
+            update(RefreshToken)
+            .where(RefreshToken.family_id == family_id, RefreshToken.revoked_at.is_(None))
+            .values(revoked_at=datetime.now(timezone.utc))
+        )
+
+    async def revoke_user_sessions(self, user_id: uuid.UUID) -> None:
+        """Revoga todas as sessões de um usuário (não faz commit)."""
+        await self.db.execute(
+            update(RefreshToken)
+            .where(RefreshToken.user_id == user_id, RefreshToken.revoked_at.is_(None))
+            .values(revoked_at=datetime.now(timezone.utc))
+        )
