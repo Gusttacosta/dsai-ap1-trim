@@ -30,8 +30,14 @@ jobs:
     env:
       # Banco descartável só da CI, usado pelos testes que precisam de PostgreSQL.
       TEST_DATABASE_URL: postgresql+asyncpg://postgres:postgres@localhost:5432/trim_test
+      # Ferramentas de cobertura só da CI, fora do requirements.txt da produção (#41).
+      PYTEST_COV_VERSION: 7.1.0
+      DIFF_COVER_VERSION: 11.0.4
     steps:
+      # Histórico inteiro, para o diff-cover comparar com origin/main.
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - uses: actions/setup-python@v5
         with:
@@ -39,13 +45,19 @@ jobs:
           cache: pip
 
       - name: Instalar dependências
-        run: pip install -r requirements.txt
+        run: |
+          pip install -r requirements.txt
+          pip install "pytest-cov==${PYTEST_COV_VERSION}" "diff-cover==${DIFF_COVER_VERSION}"
 
       - name: Importar a aplicação
         run: python -c "import src.backend.main"
 
-      - name: Testes
-        run: pytest -q
+      - name: Testes com cobertura
+        run: pytest -q --cov=src/backend --cov-report=term --cov-report=xml:coverage.xml
+
+      # Falha se as linhas novas do backend em relação à main tiverem menos de 70% de cobertura.
+      - name: Cobertura do código novo (diff-cover)
+        run: diff-cover coverage.xml --compare-branch=origin/main --fail-under=70
 
   # Segredos no histórico inteiro, com as exceções de .gitleaks.toml (#33).
   gitleaks:
@@ -115,3 +127,117 @@ jobs:
         env:
           VITE_API_URL: https://trim-api.example.com/api
         run: npm run build
+
+  # Commits do PR (fora os merges) precisam de Agent: e Spec: que o git reconheça como trailers (#41).
+  trailers:
+    name: Trailers (Agent e Spec)
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Conferir Agent e Spec nos commits do PR
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          faltando=0
+          total=0
+          for commit in $(git rev-list --no-merges "${BASE_SHA}..${HEAD_SHA}"); do
+            total=$((total + 1))
+            agent=$(git log -1 --format='%(trailers:key=Agent,valueonly,separator=%x20)' "$commit" | tr -d '[:space:]')
+            spec=$(git log -1 --format='%(trailers:key=Spec,valueonly,separator=%x20)' "$commit" | tr -d '[:space:]')
+            resumo=$(git log -1 --format='%h %s' "$commit")
+            if [ -z "$agent" ] || [ -z "$spec" ]; then
+              faltando=$((faltando + 1))
+              echo "::error::Commit sem trailer Agent: ou Spec: reconhecido pelo git: ${resumo}"
+            else
+              echo "ok  ${resumo}"
+            fi
+          done
+          echo "${total} commits conferidos, ${faltando} sem os dois trailers."
+          if [ "$faltando" -gt 0 ]; then
+            echo "Agent:, Spec: e Co-Authored-By: devem ficar juntos no último parágrafo, sem linha em branco."
+            exit 1
+          fi
+
+  # Alertas de dependências: falha só em vulnerabilidade crítica (#41).
+  dependencias:
+    name: Dependências (npm audit e pip-audit)
+    runs-on: ubuntu-latest
+    env:
+      PIP_AUDIT_VERSION: 2.10.1
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: npm audit (frontend, falha só em críticas)
+        working-directory: src/frontend
+        run: npm audit --audit-level=critical
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Instalar pip-audit
+        run: pip install "pip-audit==${PIP_AUDIT_VERSION}"
+
+      # O pip-audit não informa a severidade: ela vem da base de advisories do GitHub.
+      - name: pip-audit (backend, falha só em críticas)
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          pip-audit -r requirements.txt --format json --output pip-audit.json || true
+          if ! jq -e '.dependencies' pip-audit.json > /dev/null 2>&1; then
+            echo "::error::O pip-audit não gerou o relatório JSON."
+            exit 1
+          fi
+          jq -r '.dependencies[] | .name as $nome | .version as $versao | (.vulns // [])[]
+            | [$nome, $versao, .id, ([.id] + (.aliases // []) | map(select(startswith("GHSA-"))) | first // "-")]
+            | @tsv' pip-audit.json | sort -u > alertas.tsv
+          criticos=0
+          while IFS=$'\t' read -r nome versao id ghsa; do
+            severidade=desconhecida
+            if [ "$ghsa" != "-" ]; then
+              severidade=$(gh api "/advisories/${ghsa}" --jq .severity 2>/dev/null || echo desconhecida)
+            fi
+            echo "${severidade}	${nome} ${versao}	${id}	${ghsa}"
+            if [ "$severidade" = "critical" ]; then
+              criticos=$((criticos + 1))
+              echo "::error::Vulnerabilidade crítica: ${nome} ${versao} (${id} / ${ghsa})"
+            elif [ "$severidade" = "desconhecida" ]; then
+              echo "::warning::Severidade desconhecida: ${nome} ${versao} (${id})"
+            fi
+          done < alertas.tsv
+          echo "$(wc -l < alertas.tsv) alertas no pip-audit, ${criticos} críticos."
+          [ "$criticos" -eq 0 ]
+
+  # Duplicação em src/, só como relatório: este job não falha por duplicação (#41).
+  duplicacao:
+    name: Duplicação (jscpd, relatório)
+    runs-on: ubuntu-latest
+    env:
+      JSCPD_VERSION: 5.4.3
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: jscpd em src/
+        run: |
+          npx --yes "jscpd@${JSCPD_VERSION}" src \
+            --ignore "**/node_modules/**,**/dist/**,**/__pycache__/**,**/package-lock.json" \
+            --reporters console,markdown \
+            --output jscpd-report \
+            --exit-code 0 || echo "::warning::O jscpd terminou com erro; o relatório pode estar incompleto."
+          if [ -f jscpd-report/jscpd-report.md ]; then
+            cat jscpd-report/jscpd-report.md >> "$GITHUB_STEP_SUMMARY"
+          fi
