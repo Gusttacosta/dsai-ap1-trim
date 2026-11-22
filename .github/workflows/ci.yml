@@ -115,3 +115,38 @@ jobs:
         env:
           VITE_API_URL: https://trim-api.example.com/api
         run: npm run build
+
+  # Commits do PR (fora os merges) precisam de Agent: e Spec: que o git reconheça como trailers (#41).
+  trailers:
+    name: Trailers (Agent e Spec)
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Conferir Agent e Spec nos commits do PR
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          faltando=0
+          total=0
+          for commit in $(git rev-list --no-merges "${BASE_SHA}..${HEAD_SHA}"); do
+            total=$((total + 1))
+            agent=$(git log -1 --format='%(trailers:key=Agent,valueonly,separator=%x20)' "$commit" | tr -d '[:space:]')
+            spec=$(git log -1 --format='%(trailers:key=Spec,valueonly,separator=%x20)' "$commit" | tr -d '[:space:]')
+            resumo=$(git log -1 --format='%h %s' "$commit")
+            if [ -z "$agent" ] || [ -z "$spec" ]; then
+              faltando=$((faltando + 1))
+              echo "::error::Commit sem trailer Agent: ou Spec: reconhecido pelo git: ${resumo}"
+            else
+              echo "ok  ${resumo}"
+            fi
+          done
+          echo "${total} commits conferidos, ${faltando} sem os dois trailers."
+          if [ "$faltando" -gt 0 ]; then
+            echo "Agent:, Spec: e Co-Authored-By: devem ficar juntos no último parágrafo, sem linha em branco."
+            exit 1
+          fi
