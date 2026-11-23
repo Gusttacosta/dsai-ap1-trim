@@ -12,9 +12,10 @@ from decimal import Decimal
 
 import pytest
 import pytest_asyncio
-from sqlalchemy import func, select
+from sqlalchemy import func, select, update
 
-from src.backend.modules.auth.models import UserRole
+from src.backend.modules.auth.models import User, UserRole
+from src.backend.modules.barbers.models import Barber
 from src.backend.modules.services.models import BarberServiceAssociation, Service
 from tests.agenda_fixtures import needs_db
 from tests.api_helpers import add_barber, add_user, auth
@@ -135,10 +136,15 @@ async def test_detalhes_sem_barbeiros_vinculados(sessionmaker, client, admin):
 async def test_detalhes_escondem_barbeiro_desativado_e_conta_desativada(sessionmaker, client, admin):
     corte = await create(client, admin)
     ativo = await add_barber(sessionmaker, "ativo@teste.com")
-    perfil_off = await add_barber(sessionmaker, "perfiloff@teste.com", is_active=False)
-    conta_off = await add_barber(sessionmaker, "contaoff@teste.com", user_active=False)
+    perfil_off = await add_barber(sessionmaker, "perfiloff@teste.com")
+    conta_off = await add_barber(sessionmaker, "contaoff@teste.com")
     for barber in (ativo, perfil_off, conta_off):
         assert (await link(client, admin, corte["id"], barber.id)).status_code == 201
+    # Desativados depois do vínculo: vincular quem já está inativo é recusado (#39).
+    async with sessionmaker() as db:
+        await db.execute(update(Barber).where(Barber.id == perfil_off.id).values(is_active=False))
+        await db.execute(update(User).where(User.id == conta_off.user_id).values(is_active=False))
+        await db.commit()
 
     assert await barber_ids(client, corte["id"]) == {str(ativo.id)}
 
