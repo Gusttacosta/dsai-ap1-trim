@@ -23,13 +23,21 @@ from src.backend.modules.auth.models import (
     User,
     UserRole,
 )
-from src.backend.modules.auth.schemas import UserRegisterRequest
+from src.backend.modules.auth.schemas import UserRegisterRequest, UserUpdateRequest
 
 logger = logging.getLogger(__name__)
 
 # Um refresh token trocado há menos que isto e apresentado de novo é tratado como corrida entre
 # abas, não como reuso de um token copiado (SPEC/2026-11-22-auth-refresh-logout.md).
 REFRESH_REUSE_GRACE = timedelta(seconds=10)
+
+
+class WrongCurrentPassword(Exception):
+    """A senha atual informada na troca de senha não confere."""
+
+
+class SamePassword(Exception):
+    """A senha nova é igual à atual."""
 
 
 class InvalidRefreshToken(Exception):
@@ -221,6 +229,43 @@ class AuthService:
         await self.db.commit()
         return True
 
+    # ── perfil e troca de senha ──────────────────────────
+
+    async def update_profile(self, user: User, data: UserUpdateRequest) -> User:
+        """Atualiza só os campos enviados (nome, telefone e foto) do próprio usuário."""
+        changes = data.model_dump(exclude_unset=True)
+        for field, value in changes.items():
+            setattr(user, field, value)
+        if changes:
+            await self.db.commit()
+            await self.db.refresh(user)
+        return user
+
+    async def change_password(
+        self, user: User, current_password: str, new_password: str, refresh_token: str | None
+    ) -> None:
+        """Troca a senha conferindo a atual e encerra as outras sessões.
+
+        A sessão do cookie de quem fez a troca (`refresh_token`), se houver, continua valendo. Os
+        tokens de redefinição pendentes deixam de valer.
+        """
+        if not security.verify_password(current_password, user.hashed_password):
+            raise WrongCurrentPassword()
+        if security.verify_password(new_password, user.hashed_password):
+            raise SamePassword()
+
+        user.hashed_password = security.get_password_hash(new_password)
+        current = await self._refresh_row(refresh_token)
+        # A revogação filtra por user_id: o cookie de outra pessoa não preserva nenhuma sessão.
+        keep = current.family_id if current is not None else None
+        await self.revoke_user_sessions(user.id, except_family=keep)
+        await self.db.execute(
+            update(PasswordResetToken)
+            .where(PasswordResetToken.user_id == user.id, PasswordResetToken.is_used == False)  # noqa: E712
+            .values(is_used=True)
+        )
+        await self.db.commit()
+
     # ── sessões (refresh tokens) ─────────────────────────
 
     async def issue_tokens(self, user: User, family_id: uuid.UUID | None = None) -> IssuedTokens:
@@ -299,10 +344,13 @@ class AuthService:
             .values(revoked_at=datetime.now(timezone.utc))
         )
 
-    async def revoke_user_sessions(self, user_id: uuid.UUID) -> None:
-        """Revoga todas as sessões de um usuário (não faz commit)."""
-        await self.db.execute(
-            update(RefreshToken)
-            .where(RefreshToken.user_id == user_id, RefreshToken.revoked_at.is_(None))
-            .values(revoked_at=datetime.now(timezone.utc))
+    async def revoke_user_sessions(
+        self, user_id: uuid.UUID, except_family: uuid.UUID | None = None
+    ) -> None:
+        """Revoga as sessões de um usuário, menos `except_family` se houver (não faz commit)."""
+        stmt = update(RefreshToken).where(
+            RefreshToken.user_id == user_id, RefreshToken.revoked_at.is_(None)
         )
+        if except_family is not None:
+            stmt = stmt.where(RefreshToken.family_id != except_family)
+        await self.db.execute(stmt.values(revoked_at=datetime.now(timezone.utc)))
