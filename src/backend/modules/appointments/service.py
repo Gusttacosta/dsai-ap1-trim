@@ -7,6 +7,7 @@ prevenção de conflito e clonagem de dados financeiros.
 
 import uuid
 from collections.abc import Callable
+from dataclasses import dataclass
 from datetime import date, datetime, time, timedelta, timezone
 from zoneinfo import ZoneInfo
 
@@ -40,6 +41,21 @@ STAFF_TRANSITIONS = {
     },
 }
 AFTER_START_STATUSES = {AppointmentStatus.COMPLETED, AppointmentStatus.NO_SHOW}
+
+
+@dataclass(frozen=True)
+class WorkWindow:
+    """Expediente de um dia convertido para UTC (o WorkSchedule guarda hora local)."""
+
+    opens: datetime
+    closes: datetime
+    break_start: datetime | None
+    break_end: datetime | None
+
+    def overlaps_break(self, start: datetime, end: datetime) -> bool:
+        if self.break_start is None or self.break_end is None:
+            return False
+        return start < self.break_end and end > self.break_start
 
 
 def utc_now() -> datetime:
@@ -123,6 +139,30 @@ class AppointmentService:
         result = await self.db.execute(stmt)
         return result.scalar_one_or_none()
 
+    def _work_window(self, schedule: WorkSchedule, day: date) -> WorkWindow:
+        has_break = schedule.break_start is not None and schedule.break_end is not None
+        return WorkWindow(
+            opens=self._local_to_utc(day, schedule.start_time),
+            closes=self._local_to_utc(day, schedule.end_time),
+            break_start=self._local_to_utc(day, schedule.break_start) if has_break else None,
+            break_end=self._local_to_utc(day, schedule.break_end) if has_break else None,
+        )
+
+    def _schedule_error(self, schedule: WorkSchedule, day: date, start: datetime, end: datetime) -> str | None:
+        """Mensagem de recusa se o atendimento não cabe no expediente ou encosta no almoço (#23)."""
+        window = self._work_window(schedule, day)
+        if start < window.opens or end > window.closes:
+            return (
+                "Horário fora do expediente do barbeiro nesse dia "
+                f"({schedule.start_time:%H:%M} às {schedule.end_time:%H:%M})."
+            )
+        if window.overlaps_break(start, end):
+            return (
+                "Horário cai no intervalo de almoço do barbeiro "
+                f"({schedule.break_start:%H:%M} às {schedule.break_end:%H:%M})."
+            )
+        return None
+
     async def get_availability(self, barber_id: uuid.UUID, target_date: date, duration_minutes: int) -> list[str]:
         """Calcula slots livres ("HH:MM", hora local) para uma data no fuso da barbearia."""
         if not self.local_today() <= target_date <= self._last_bookable_date():
@@ -150,25 +190,16 @@ class AppointmentService:
         
         # Gerar slots de 30 em 30 minutos desde start_time até end_time.
         # O expediente está em hora local; as comparações são feitas em UTC.
-        current_dt = self._local_to_utc(target_date, schedule.start_time)
-        end_dt_limit = self._local_to_utc(target_date, schedule.end_time)
+        window = self._work_window(schedule, target_date)
+        current_dt = window.opens
         earliest_start = self._earliest_start()
 
-        break_start_dt = None
-        break_end_dt = None
-        if schedule.break_start and schedule.break_end:
-            break_start_dt = self._local_to_utc(target_date, schedule.break_start)
-            break_end_dt = self._local_to_utc(target_date, schedule.break_end)
-
-        while current_dt + timedelta(minutes=duration_minutes) <= end_dt_limit:
+        while current_dt + timedelta(minutes=duration_minutes) <= window.closes:
             slot_end_dt = current_dt + timedelta(minutes=duration_minutes)
-            
+
             # Verifica colisão com almoço
-            is_break_conflict = False
-            if break_start_dt and break_end_dt:
-                if current_dt < break_end_dt and slot_end_dt > break_start_dt:
-                    is_break_conflict = True
-            
+            is_break_conflict = window.overlaps_break(current_dt, slot_end_dt)
+
             # Verifica colisão com agendamentos existentes
             is_booked_conflict = False
             for booked_start, booked_end in booked_intervals:
@@ -216,6 +247,11 @@ class AppointmentService:
         schedule = await self._get_schedule_for_date(data.barber_id, local_date)
         if not schedule or not schedule.is_working:
             raise ValueError("O barbeiro não trabalha nesse dia.")
+
+        # 5. O atendimento inteiro precisa caber no expediente, fora do almoço (#23)
+        schedule_error = self._schedule_error(schedule, local_date, start_dt, end_dt)
+        if schedule_error:
+            raise ValueError(schedule_error)
 
         # Cria a transação de agendamento
         appointment = Appointment(
