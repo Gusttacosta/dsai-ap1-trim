@@ -5,8 +5,8 @@
 export const NAME_MIN = 2;
 export const NAME_MAX = 100;
 export const DURATION_MAX = 720;
-/** Maior parte inteira do preço que cabe no Numeric(10, 2) da coluna. */
-const PRICE_INT_MAX = 99_999_999;
+/** Dígitos da parte inteira que cabem no Numeric(10, 2) da coluna: até 99.999.999. */
+const PRICE_INT_DIGITS = 8;
 
 // Só dígitos, com um separador decimal (vírgula ou ponto) e até 2 casas. Sem milhar.
 const PRICE_FORMAT = /^(\d+)(?:[.,](\d{1,2}))?$/;
@@ -28,7 +28,7 @@ export function parsePrice(text: string): string | null {
   const match = PRICE_FORMAT.exec(text.trim());
   if (!match) return null;
   const integer = match[1].replace(/^0+(?=\d)/, '');
-  if (integer.length > String(PRICE_INT_MAX).length || Number(integer) > PRICE_INT_MAX) return null;
+  if (integer.length > PRICE_INT_DIGITS) return null;
   return `${integer}.${(match[2] ?? '').padEnd(2, '0')}`;
 }
 

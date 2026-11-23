@@ -47,6 +47,12 @@ describe('serviceInput e serviceChanges', () => {
     expect(serviceChanges(CORTE, fields)).toEqual({ description: null });
   });
 
+  it('preço igual escrito de outro jeito não conta como mudança', () => {
+    const comUmaCasa = { ...CORTE, price: '35.5' };
+    const fields = { name: 'Corte', description: 'Tesoura e máquina', price: '35,50', duration: '30' };
+    expect(serviceChanges(comUmaCasa, fields)).toEqual({});
+  });
+
   it('descrição vazia no backend e campo vazio não contam como mudança', () => {
     const semDescricao = { ...CORTE, description: '' };
     expect(serviceChanges(semDescricao, { name: 'Corte', description: '', price: '35', duration: '30' })).toEqual({});
