@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import type { AccountUser, ProfileChanges } from '../../hooks/useAccount';
 import { apiErrorMessage } from '../../utils/apiError';
 import { formatPhone, validateAvatarUrl, validateFullName, validatePhone } from '../../utils/profileValidation';
@@ -6,7 +6,8 @@ import styles from './Account.module.css';
 
 type Props = {
   user: AccountUser;
-  onSave: (changes: ProfileChanges) => Promise<unknown>;
+  /** Salva e devolve o usuário como o backend gravou. */
+  onSave: (changes: ProfileChanges) => Promise<AccountUser | void>;
 };
 
 /** Campos alterados em relação ao usuário salvo, já no formato do backend. */
@@ -32,11 +33,19 @@ const ProfileForm = ({ user, onSave }: Props) => {
   const [success, setSuccess] = useState('');
   const [saving, setSaving] = useState(false);
 
-  // Depois de salvar, mostra o que o backend gravou (o telefone volta normalizado).
+  const showSaved = (saved: AccountUser) => {
+    setFullName(saved.full_name);
+    setPhone(saved.phone ?? '');
+    setAvatarUrl(saved.avatar_url ?? '');
+  };
+
+  // Quando o usuário muda depois da montagem, os campos acompanham. Na montagem os campos já
+  // começam com ele: rodar aqui apagaria o que a pessoa digitou antes de o efeito rodar.
+  const shownUser = useRef(user);
   useEffect(() => {
-    setFullName(user.full_name);
-    setPhone(user.phone ?? '');
-    setAvatarUrl(user.avatar_url ?? '');
+    if (shownUser.current === user) return;
+    shownUser.current = user;
+    showSaved(user);
   }, [user]);
 
   const handleSubmit = async (event: React.FormEvent) => {
@@ -57,7 +66,10 @@ const ProfileForm = ({ user, onSave }: Props) => {
 
     setSaving(true);
     try {
-      await onSave(changes);
+      const saved = await onSave(changes);
+      // Mostra o que o backend gravou (o telefone volta normalizado) junto com a confirmação,
+      // sem esperar o efeito acima, que roda depois da renderização.
+      if (saved) showSaved(saved);
       setSuccess('Dados salvos.');
     } catch (err) {
       setError(apiErrorMessage(err, 'Não foi possível salvar seus dados.'));

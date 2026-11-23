@@ -25,7 +25,8 @@ Tokens extraídos do campo `usage` das transcrições do Claude Code (mensagens 
 | `2026-11-21-1746-claudecode.jsonl` | 21/11 17:46 | 18:07 | claude-opus-5-5 | 32 | 22,252 | 29,389 | 3,129,116 | 3,180,789 |
 | `2026-11-21-1807-claudecode.jsonl` | 21/11 18:07 | 18:30 | claude-opus-5-5 | 42 | 12,596 | 16,158 | 4,775,529 | 4,804,325 |
 | `2026-11-21-2356-claudecode.jsonl` | 21/11 23:56 | 00:47 (22/11) | claude-opus-5-5 | 124 | 48,755 | 101,420 | 4,896,405 | 5,046,704 |
-| **Total** | | | | **1,628** | **599,688** | **1,235,083** | **81,276,823** | **83,113,222** |
+| `2026-11-22-1939-claudecode.jsonl` | 22/11 19:39 | 22:16 | claude-opus-5-5 | 320 | 169,738 | 282,758 | 27,763,687 | 28,216,503 |
+| **Total** | | | | **1,948** | **769,426** | **1,517,841** | **109,040,510** | **111,329,725** |
 
 
 Sessão de 21/11 23:56 a 22/11 00:47 (PRs #43 e #44): os commits do agente são de 22/11. Exportada pelo terminal, porque o pedido de exportação ao próprio agente foi bloqueado de novo pelo filtro de segurança do modelo (reasoning_extraction). Mascaramento com jq dentro das strings do JSON, incluindo a parte antes do @ do e-mail pessoal. A exportação vai até 00:47 e não inclui o commit desta sessão.
@@ -57,3 +58,5 @@ Sessão de 21/11 a partir das 17:19 (testes de integração do barbers, #3, e is
 Sessão de 21/11 a partir das 17:46 (testes de integração do services, #3, e issue #39): quarta parte da mesma sessão, separada pelo `timestamp` (entradas depois de `2026-11-21T20:46:51Z`). A exportação, o mascaramento e a soma dos tokens foram iguais aos das partes anteriores. Os textos com `@` que sobraram são decoradores de código, e o `gitleaks` não encontrou nada. A exportação vai até 18:07 e não inclui o commit desta parte.
 
 Sessão de 21/11 a partir das 18:07 (conflitos do #38 e do #40, troca da base do #40 e varredura do fim do dia): quinta e última parte da mesma sessão, separada pelo `timestamp` (entradas depois de `2026-11-21T21:07:05Z`). A exportação, o mascaramento e a soma dos tokens foram iguais aos das partes anteriores. Nesta parte não sobrou nenhum texto com `@`, e o `gitleaks` não encontrou nada. A exportação vai até 18:30 e não inclui o commit desta parte.
+
+Sessão de 22/11 a partir das 19:39 (resumo do estado, medição do volume, #35 em dois grupos com os PRs #45 e #46, #39 no PR #47, #23 no PR #48, issue #49 e a correção do teste intermitente no PR #50): os tokens foram somados do `message.usage` das respostas do agente, uma vez por mensagem (150 mensagens). Ficaram de fora os cerca de 12 mil tokens do subagente que leu o slide da aula 09. A exportação foi feita com o `export_safe.py`, igual às anteriores e com o prefixo do e-mail pessoal mascarado. Foram descartados 122 blocos de raciocínio e aplicadas 482 máscaras (140 de e-mail, 9 de credencial em URL, 331 de chave e valor e 2 de termo extra). O `gitleaks` (com o `.gitleaks.toml`) não encontrou nada no arquivo exportado. A exportação vai até 22:16 e não inclui o commit desta sessão.
