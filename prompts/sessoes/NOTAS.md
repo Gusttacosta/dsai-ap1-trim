@@ -109,3 +109,7 @@ Sessão de 23/11 a partir das 20:51 (registro das sessões e PR #51, e a #22: no
 ### [2026-11-23-2126-claudecode.jsonl](2026-11-23-2126-claudecode.jsonl)
 
 Sessão de 23/11 a partir das 21:26 (merge da main no #52 e a #37 com o item 5 da #39: admin de barbeiros e escala validada): terceira parte da sessão das 20:35, separada pelo `timestamp` (entradas depois de `2026-11-24T00:26:31Z`). A exportação, o mascaramento e a soma dos tokens foram iguais aos das partes anteriores (41 mensagens). Os textos com `@` que sobraram são decoradores de código (`@pytest.mark`, `@router.put`), e o `gitleaks` não encontrou nada. A linha da parte das 20:51 também está aqui, igual à do PR #52, para o total ficar certo depois dos dois merges. A exportação vai até 22:04 e não inclui o commit desta parte nem a abertura do PR.
+
+### [2026-11-24-1441-claudecode.jsonl](2026-11-24-1441-claudecode.jsonl)
+
+Sessão do PR #54 (custos gerados por script). Exportada pelo terminal, porque o pedido de exportação ao próprio agente é bloqueado pelo filtro de segurança do modelo (reasoning_extraction), como nas sessões de 16/11 e 21/11. Mascaramento com jq dentro das strings do JSON, incluindo a parte antes do @ do e-mail pessoal. A exportação não inclui o commit desta sessão.
