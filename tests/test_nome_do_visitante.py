@@ -65,6 +65,7 @@ NAME_256 = "A" * 128 + " " + "B" * 127
         ("  Severino  ", FIRST_AND_LAST),
         ("Ana S", FIRST_AND_LAST),
         ("A B", FIRST_AND_LAST),
+        ("𝒜 Silva", FIRST_AND_LAST),
         ("Ana 123", CHARACTERS),
         ("Ana Silva2", CHARACTERS),
         ("Ana Silva²", CHARACTERS),
@@ -102,7 +103,7 @@ async def test_sem_guest_name_responde_422(client, sessionmaker):
 
 @pytest.mark.parametrize(
     "guest_name",
-    ["Ana Sá", "João da Silva", "Li Wu", "Maria D'Ávila", "Maria-José Souza", "José Souza Jr.", "ÉLIO ÇARDOSO", pytest.param(NAME_255, id="255-caracteres")],
+    ["Ana Sá", "João da Silva", "Li Wu", "Maria D'Ávila", "Maria-José Souza", "José Souza Jr.", "ÉLIO ÇARDOSO", "𝒜𝒜 Silva", pytest.param(NAME_255, id="255-caracteres")],
 )
 async def test_nome_valido_e_aceito(client, sessionmaker, guest_name):
     shop = await create_shop(sessionmaker)
