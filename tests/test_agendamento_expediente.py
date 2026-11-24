@@ -54,7 +54,7 @@ async def book_as_guest(client, shop, start, service_ids=None):
             "barber_id": str(shop["barber_id"]),
             "service_ids": [str(s) for s in (service_ids or [shop["service_id"]])],
             "start_datetime": start,
-            "guest_name": "Visitante",
+            "guest_name": "Visitante Teste",
         },
     )
 
