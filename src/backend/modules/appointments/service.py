@@ -28,6 +28,11 @@ NOT_FOUND_ERROR = "Agendamento não encontrado."
 CANCEL_STATUS_ERROR = "Só é possível cancelar agendamentos pendentes ou confirmados."
 CANCEL_STARTED_ERROR = "Não é possível cancelar um agendamento que já começou."
 CANCELLABLE_STATUSES = (AppointmentStatus.PENDING, AppointmentStatus.CONFIRMED)
+BARBER_UNAVAILABLE_ERROR = "Barbeiro indisponível para agendamento."
+
+
+class BarberUnavailable(ValueError):
+    """Barbeiro desconhecido, ou com o perfil ou a conta desativados."""
 FINISH_BEFORE_START_ERROR = "Só é possível concluir ou marcar falta depois do início do agendamento."
 
 # Transições que barbeiro e admin podem fazer (SPEC/2026-11-18-status-agendamento.md).
@@ -163,8 +168,19 @@ class AppointmentService:
             )
         return None
 
+    async def _ensure_barber_available(self, barber_id: uuid.UUID) -> None:
+        """Só barbeiro com o perfil e a conta ativos recebe agendamento."""
+        stmt = (
+            select(Barber.id)
+            .join(User, Barber.user_id == User.id)
+            .where(Barber.id == barber_id, Barber.is_active.is_(True), User.is_active.is_(True))
+        )
+        if (await self.db.execute(stmt)).scalar_one_or_none() is None:
+            raise BarberUnavailable(BARBER_UNAVAILABLE_ERROR)
+
     async def get_availability(self, barber_id: uuid.UUID, target_date: date, duration_minutes: int) -> list[str]:
         """Calcula slots livres ("HH:MM", hora local) para uma data no fuso da barbearia."""
+        await self._ensure_barber_available(barber_id)
         if not self.local_today() <= target_date <= self._last_bookable_date():
             return []
 
@@ -219,6 +235,7 @@ class AppointmentService:
 
     async def create_appointment(self, client_id: uuid.UUID, data: AppointmentCreateRequest) -> Appointment:
         """Cria um agendamento clonando preços e prevenindo conflitos."""
+        await self._ensure_barber_available(data.barber_id)
         # 1. Recupera os serviços e valida se o barbeiro faz eles
         services = await self._get_services_for_barber(data.barber_id, data.service_ids)
         
