@@ -67,6 +67,7 @@ NAME_256 = "A" * 128 + " " + "B" * 127
         ("A B", FIRST_AND_LAST),
         ("Ana 123", CHARACTERS),
         ("Ana Silva2", CHARACTERS),
+        ("Ana Silva²", CHARACTERS),
         ("Ana @Silva", CHARACTERS),
         ("Ana <b>Silva</b>", CHARACTERS),
         ("Ana_Maria Silva", CHARACTERS),
