@@ -113,8 +113,8 @@ inativo.
 
 ## Critérios de aceitação
 
-Testes em `tests/test_barbeiros_admin.py` (pela API, com o banco de teste), que falham com o código
-de antes desta spec:
+Testes em `tests/test_barbeiros_admin.py` e, para a escala, em `tests/test_barbeiros_escala.py`
+(pela API, com o banco de teste), que falham com o código de antes desta spec:
 
 - [ ] O admin altera a comissão (limites 0 e 100 aceitos; -1, 100,01 e `null` recusados), a bio e o
       Instagram, inclusive apagando os dois com `null`. Campo não enviado não muda, e campo
