@@ -20,7 +20,7 @@ from src.backend.modules.appointments.schemas import (
     AvailabilityResponse,
     GuestAppointmentCreateRequest,
 )
-from src.backend.modules.appointments.service import AppointmentService
+from src.backend.modules.appointments.service import AppointmentService, BarberUnavailable
 
 router = APIRouter()
 
@@ -35,7 +35,10 @@ async def get_availability(
 ):
     """Retorna os horários disponíveis (slots) para um barbeiro em uma data."""
     service = AppointmentService(db)
-    slots = await service.get_availability(barber_id, target_date, duration_minutes)
+    try:
+        slots = await service.get_availability(barber_id, target_date, duration_minutes)
+    except BarberUnavailable as e:
+        raise HTTPException(status_code=404, detail=str(e))
     
     return AvailabilityResponse(
         date=str(target_date),

@@ -147,6 +147,7 @@ async def test_detalhes_juntam_dados_do_usuario_e_do_barbeiro(sessionmaker, clie
         "avatar_url": "https://img/joao.png",
         "bio": "Barba e cabelo",
         "instagram_url": None,
+        "services": [],  # SPEC/2026-11-23-barbeiros-admin-escala.md: os serviços ativos do barbeiro
     }
     assert "commission_rate" not in body
 
