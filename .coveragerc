@@ -1,0 +1,4 @@
+[run]
+# O SQLAlchemy assíncrono roda as consultas em greenlets. Sem isto, o coverage perde as linhas
+# que vêm depois de um await e a cobertura do diff fica abaixo do real.
+concurrency = greenlet, thread
