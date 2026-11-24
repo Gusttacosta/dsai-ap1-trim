@@ -116,6 +116,11 @@ jobs:
       - name: Instalar dependências
         run: npm ci
 
+      # Erros de tipo quebram o PR (#7). Vem antes do build para que o passo
+      # "Build sem VITE_API_URL falha" só possa falhar pela falta da variável.
+      - name: Tipos (tsc)
+        run: npm run typecheck
+
       - name: Testes
         run: npm test
 
@@ -167,7 +172,7 @@ jobs:
             exit 1
           fi
 
-  # Alertas de dependências: falha só em vulnerabilidade crítica (#41).
+  # Alertas de dependências (#41): npm audit falha em high (#8), pip-audit só em crítica.
   dependencias:
     name: Dependências (npm audit e pip-audit)
     runs-on: ubuntu-latest
@@ -180,9 +185,10 @@ jobs:
         with:
           node-version: "22"
 
-      - name: npm audit (frontend, falha só em críticas)
+      # O frontend falha a partir de high (#8). O pip-audit segue só em críticas.
+      - name: npm audit (frontend, falha em high e críticas)
         working-directory: src/frontend
-        run: npm audit --audit-level=critical
+        run: npm audit --audit-level=high
 
       - uses: actions/setup-python@v5
         with:
