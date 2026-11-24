@@ -52,6 +52,10 @@ jobs:
       - name: Importar a aplicação
         run: python -c "import src.backend.main"
 
+      # CUSTOS.md e NOTAS.md são gerados a partir de prompts/sessoes/ (#54).
+      - name: Custo das sessões em dia (scripts/custos.py --check)
+        run: python scripts/custos.py --check
+
       - name: Testes com cobertura
         run: pytest -q --cov=src/backend --cov-report=term --cov-report=xml:coverage.xml
 
