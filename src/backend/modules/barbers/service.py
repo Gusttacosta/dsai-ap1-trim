@@ -5,14 +5,52 @@ Regras de negócio para o módulo de barbeiros.
 """
 
 import uuid
-from datetime import time
+from datetime import datetime, time, timezone
 
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from src.backend.modules.appointments.models import Appointment, AppointmentStatus
 from src.backend.modules.auth.models import User, UserRole
 from src.backend.modules.barbers.models import Barber, WorkSchedule
-from src.backend.modules.barbers.schemas import BarberCreateRequest, BarberPublicResponse
+from src.backend.modules.barbers.schemas import (
+    DAY_CHANGED,
+    SEVEN_DAYS,
+    BarberAdminResponse,
+    BarberCreateRequest,
+    BarberDetailResponse,
+    BarberPublicResponse,
+    BarberServiceSummary,
+    BarberUpdateAdminRequest,
+    WorkScheduleDay,
+    WorkScheduleUpdate,
+    check_work_day,
+)
+from src.backend.modules.services.models import BarberServiceAssociation, Service
+
+# Agendamentos que ainda vão acontecer e impedem a desativação (SPEC/2026-11-23-barbeiros-admin-escala.md).
+OPEN_STATUSES = (AppointmentStatus.PENDING, AppointmentStatus.CONFIRMED)
+
+
+class InvalidSchedule(ValueError):
+    """Escala que quebra uma regra: o router responde 422 com a mensagem."""
+
+
+def admin_view(barber: Barber, user: User) -> BarberAdminResponse:
+    return BarberAdminResponse(
+        id=barber.id,
+        user_id=user.id,
+        full_name=user.full_name,
+        email=user.email,
+        avatar_url=user.avatar_url,
+        bio=barber.bio,
+        instagram_url=barber.instagram_url,
+        commission_rate=barber.commission_rate,
+        is_active=barber.is_active,
+        user_is_active=user.is_active,
+        created_at=barber.created_at,
+        updated_at=barber.updated_at,
+    )
 
 
 class BarberService:
@@ -122,21 +160,136 @@ class BarberService:
         result = await self.db.execute(stmt)
         return list(result.scalars().all())
 
-    async def update_schedule(self, barber_id: uuid.UUID, schedule_id: uuid.UUID, data: dict) -> WorkSchedule | None:
-        """Atualiza um dia específico na escala."""
+    async def update_schedule(
+        self, barber_id: uuid.UUID, schedule_id: uuid.UUID, data: WorkScheduleUpdate
+    ) -> WorkSchedule | None:
+        """Altera só os campos enviados de um dia e confere as regras no resultado."""
         stmt = select(WorkSchedule).where(
             WorkSchedule.id == schedule_id,
             WorkSchedule.barber_id == barber_id
         )
         result = await self.db.execute(stmt)
         schedule = result.scalar_one_or_none()
-        
+
         if not schedule:
             return None
 
-        for key, value in data.items():
+        changes = data.model_dump(exclude_unset=True)
+        if changes.pop("day_of_week", schedule.day_of_week) != schedule.day_of_week:
+            raise InvalidSchedule(DAY_CHANGED)
+        merged = {
+            field: changes.get(field, getattr(schedule, field))
+            for field in ("start_time", "end_time", "break_start", "break_end")
+        }
+        try:
+            check_work_day(merged["start_time"], merged["end_time"], merged["break_start"], merged["break_end"])
+        except ValueError as e:
+            raise InvalidSchedule(str(e)) from e
+
+        for key, value in changes.items():
             setattr(schedule, key, value)
 
         await self.db.commit()
         await self.db.refresh(schedule)
         return schedule
+
+    async def replace_week(self, barber_id: uuid.UUID, days: list[WorkScheduleDay]) -> list[WorkSchedule] | None:
+        """Grava os 7 dias de uma vez (cada dia já validado). None se o barbeiro não existe."""
+        if sorted(day.day_of_week for day in days) != list(range(7)):
+            raise InvalidSchedule(SEVEN_DAYS)
+        if await self.db.get(Barber, barber_id) is None:
+            return None
+
+        stored = {s.day_of_week: s for s in await self.get_schedules(barber_id)}
+        for day in days:
+            schedule = stored.get(day.day_of_week)
+            if schedule is None:
+                schedule = WorkSchedule(barber_id=barber_id, day_of_week=day.day_of_week)
+                self.db.add(schedule)
+            for key, value in day.model_dump(exclude={"day_of_week"}).items():
+                setattr(schedule, key, value)
+
+        await self.db.commit()
+        return await self.get_schedules(barber_id)
+
+    # ── Admin ────────────────────────────────────────────
+
+    async def list_all_barbers(self) -> list[BarberAdminResponse]:
+        """Todos os barbeiros, ativos e desativados, em ordem alfabética do nome."""
+        stmt = (
+            select(Barber, User)
+            .join(User, Barber.user_id == User.id)
+            .order_by(func.lower(User.full_name), User.full_name)
+        )
+        rows = (await self.db.execute(stmt)).all()
+        return [admin_view(barber, user) for barber, user in rows]
+
+    async def count_open_appointments(self, barber_id: uuid.UUID) -> int:
+        """Agendamentos pendentes ou confirmados do barbeiro que ainda não começaram."""
+        stmt = select(func.count()).select_from(Appointment).where(
+            Appointment.barber_id == barber_id,
+            Appointment.status.in_(OPEN_STATUSES),
+            Appointment.start_datetime > datetime.now(timezone.utc),
+        )
+        return (await self.db.execute(stmt)).scalar_one()
+
+    async def update_barber(self, barber_id: uuid.UUID, data: BarberUpdateAdminRequest) -> BarberAdminResponse | None:
+        """Alteração parcial pelo admin. A desativação é recusada com agendamentos futuros."""
+        result = await self.get_barber_by_id(barber_id)
+        if not result:
+            return None
+        barber, user = result
+
+        changes = data.model_dump(exclude_unset=True)
+        if changes.get("is_active") is False and barber.is_active:
+            pending = await self.count_open_appointments(barber_id)
+            if pending:
+                raise ValueError(
+                    f"O barbeiro tem {pending} agendamento(s) futuro(s). Cancele ou remaneje antes de desativá-lo."
+                )
+        if changes.get("instagram_url") is not None:
+            changes["instagram_url"] = str(data.instagram_url)
+
+        for key, value in changes.items():
+            setattr(barber, key, value)
+        await self.db.commit()
+        await self.db.refresh(barber)
+        return admin_view(barber, user)
+
+    # ── Detalhes públicos e perfil do próprio barbeiro ───
+
+    async def get_active_barber_detail(self, barber_id: uuid.UUID) -> BarberDetailResponse | None:
+        """Detalhes públicos com os serviços ativos vinculados. None se não existe ou está inativo."""
+        result = await self.get_barber_by_id(barber_id)
+        if not result:
+            return None
+        barber, user = result
+        if not barber.is_active or not user.is_active:
+            return None
+
+        stmt = (
+            select(Service)
+            .join(BarberServiceAssociation, Service.id == BarberServiceAssociation.service_id)
+            .where(BarberServiceAssociation.barber_id == barber_id, Service.is_active.is_(True))
+            .order_by(func.lower(Service.name), Service.name)
+        )
+        services = (await self.db.execute(stmt)).scalars().all()
+        return BarberDetailResponse(
+            id=barber.id,
+            user_id=user.id,
+            full_name=user.full_name,
+            avatar_url=user.avatar_url,
+            bio=barber.bio,
+            instagram_url=barber.instagram_url,
+            services=[BarberServiceSummary.model_validate(s) for s in services],
+        )
+
+    async def update_own_profile(self, barber: Barber, changes: dict) -> Barber:
+        """Bio e Instagram do próprio barbeiro: só os campos enviados, e null apaga."""
+        for key, value in changes.items():
+            if key == "instagram_url" and value is not None:
+                value = str(value)
+            setattr(barber, key, value)
+        await self.db.commit()
+        await self.db.refresh(barber)
+        return barber
