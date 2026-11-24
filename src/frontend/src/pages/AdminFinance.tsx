@@ -1,9 +1,9 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import styles from './AdminShared.module.css';
 import api from '../api';
 
 const AdminFinance = () => {
-  const [expenses, setExpenses] = useState<any[]>([]);
+  const [expenses] = useState<any[]>([]);
   const [summary, setSummary] = useState<any>({ total_revenue: 0, total_expenses: 0, net_profit: 0 });
 
   useEffect(() => {
