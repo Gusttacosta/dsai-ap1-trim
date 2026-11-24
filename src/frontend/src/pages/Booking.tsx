@@ -3,12 +3,15 @@ import { useNavigate } from 'react-router-dom';
 import styles from './Booking.module.css';
 import api from '../api';
 import { MAX_DAYS_AHEAD, addDays, formatLongDate, shopToday, toStartDatetime } from '../utils/shopDate';
+import { cleanGuestName, validateGuestName } from '../utils/guestName';
 
 const Booking = () => {
   const navigate = useNavigate();
   const isAuthenticated = !!localStorage.getItem('token');
   const [step, setStep] = useState(isAuthenticated ? 1 : 0);
   const [guestName, setGuestName] = useState('');
+  // A mensagem só aparece depois que algo foi digitado (SPEC/2026-11-23-nome-do-visitante.md).
+  const guestNameError = validateGuestName(guestName);
   
   const [barbers, setBarbers] = useState<any[]>([]);
   const [services, setServices] = useState<any[]>([]);
@@ -50,7 +53,7 @@ const Booking = () => {
           barber_id: selectedBarber,
           service_ids: [selectedService],
           start_datetime: toStartDatetime(selectedDate, selectedTime),
-          ...( !isAuthenticated && { guest_name: guestName } )
+          ...( !isAuthenticated && { guest_name: cleanGuestName(guestName) } )
         };
         
         const endpoint = isAuthenticated ? '/appointments' : '/appointments/guest';
@@ -71,7 +74,7 @@ const Booking = () => {
   };
 
   const isNextDisabled = () => {
-    if (step === 0) return guestName.trim().length < 3;
+    if (step === 0) return guestNameError !== null;
     if (step === 1) return !selectedBarber;
     if (step === 2) return !selectedService;
     if (step === 3) return !selectedTime;
@@ -101,15 +104,24 @@ const Booking = () => {
       {/* STEP 0: Nome do Convidado */}
       {step === 0 && (
         <div style={{ textAlign: 'center', maxWidth: '400px', margin: '0 auto' }}>
-          <h3 style={{ fontSize: '1.2rem', marginBottom: '1rem', color: '#fff' }}>Como podemos te chamar?</h3>
+          <h3 style={{ fontSize: '1.2rem', marginBottom: '1rem', color: '#fff' }}>
+            <label htmlFor="guest-name">Como podemos te chamar?</label>
+          </h3>
           <input 
+            id="guest-name"
             type="text" 
-            placeholder="Seu nome" 
+            placeholder="Nome e sobrenome" 
+            autoComplete="name"
             value={guestName} 
             onChange={e => setGuestName(e.target.value)} 
+            aria-invalid={guestName !== '' && guestNameError !== null}
+            aria-describedby="guest-name-error"
             style={{ width: '100%', padding: '0.8rem', borderRadius: '8px', border: '1px solid var(--color-border)', background: '#2c2c2e', color: '#fff', fontSize: '1.1rem', textAlign: 'center' }}
             autoFocus
           />
+          <p id="guest-name-error" role="alert" style={{ minHeight: '1.5em', marginTop: '0.5rem', color: 'var(--color-danger)' }}>
+            {guestName !== '' ? guestNameError : null}
+          </p>
         </div>
       )}
 

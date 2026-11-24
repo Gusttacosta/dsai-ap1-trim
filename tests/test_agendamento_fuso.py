@@ -49,7 +49,7 @@ async def book_as_guest(client, shop, start_datetime):
             "barber_id": str(shop["barber_id"]),
             "service_ids": [str(shop["service_id"])],
             "start_datetime": start_datetime,
-            "guest_name": "Visitante",
+            "guest_name": "Visitante Teste",
         },
     )
 

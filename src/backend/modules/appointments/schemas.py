@@ -8,9 +8,32 @@ import uuid
 from datetime import datetime
 from decimal import Decimal
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from src.backend.modules.appointments.models import AppointmentStatus
+from src.backend.modules.auth.schemas import FULL_NAME_MAX
+
+# Nome do visitante (SPEC/2026-11-23-nome-do-visitante.md). Letra é o que o Unicode chama de
+# letra (str.isalpha), a mesma classe do \p{L} usado no frontend (utils/guestName.ts).
+GUEST_NAME_PUNCTUATION = "'’.-"
+
+
+def is_guest_word(word: str) -> bool:
+    """Só letras, apóstrofo, hífen e ponto, com pelo menos uma letra."""
+    return any(c.isalpha() for c in word) and all(c.isalpha() or c in GUEST_NAME_PUNCTUATION for c in word)
+
+
+def clean_guest_name(v: str) -> str:
+    """Nome e sobrenome do visitante, com os espaços das pontas e repetidos removidos."""
+    words = v.split()
+    if len(words) < 2 or any(len(word) < 2 for word in words):
+        raise ValueError("Informe nome e sobrenome")
+    if not all(is_guest_word(word) for word in words):
+        raise ValueError("Nome deve ter só letras, espaços, apóstrofo, hífen e ponto")
+    name = " ".join(words)
+    if len(name) > FULL_NAME_MAX:
+        raise ValueError(f"Nome deve ter no máximo {FULL_NAME_MAX} caracteres")
+    return name
 
 
 class AppointmentCreateRequest(BaseModel):
@@ -23,6 +46,11 @@ class AppointmentCreateRequest(BaseModel):
 class GuestAppointmentCreateRequest(AppointmentCreateRequest):
     """Payload para criar um novo agendamento como visitante."""
     guest_name: str
+
+    @field_validator("guest_name")
+    @classmethod
+    def validate_guest_name(cls, v: str) -> str:
+        return clean_guest_name(v)
 
 
 class AppointmentStatusUpdateRequest(BaseModel):
