@@ -74,7 +74,7 @@ Repositório original (AP1): [Gusttacosta/dsai-ap1-trim](https://github.com/Gust
 | VS Code (com Remote-SSH) | — | Editor conectado por SSH à VM de desenvolvimento, onde rodam o código, o banco e o agente |
 | Claude Code | `claude-opus-5-5`, `claude-haiku-5-5` | Investigação e issues, specs, código, testes, revisão e documentação |
 
-Os modelos são os que aparecem na coluna "Modelo" de [`prompts/sessoes/CUSTOS.md`](prompts/sessoes/CUSTOS.md), que registra os tokens de cada sessão. As transcrições ficam em [`prompts/sessoes/`](prompts/sessoes/).
+Os modelos são os que aparecem na coluna "Modelos" de [`prompts/sessoes/CUSTOS.md`](prompts/sessoes/CUSTOS.md), que registra os tokens de cada sessão. O `claude-haiku-5-5` foi usado por um subagente da sessão de 10/11, cujo arquivo não está no repositório, e por isso só aparece na nota dessa sessão em [`prompts/sessoes/NOTAS.md`](prompts/sessoes/NOTAS.md). As transcrições ficam em [`prompts/sessoes/`](prompts/sessoes/).
 
 ---
 
@@ -553,6 +553,8 @@ SUM:
 ├── SPEC/                      # Specs datadas
 │   ├── 2026-09-29-*.md        # AP1, somente leitura
 │   └── 2026-11-*.md           # AP2: processo, deploy, seed, fuso, cancelamento
+├── scripts/
+│   └── custos.py              # Gera prompts/sessoes/CUSTOS.md e NOTAS.md (--check na CI)
 ├── src/
 │   ├── backend/
 │   │   ├── main.py            # App FastAPI, CORS, /health, criação das tabelas
@@ -569,7 +571,8 @@ SUM:
 ├── tests/                     # pytest (testes da AP1 e testes novos da AP2)
 └── prompts/
     └── sessoes/               # Transcrições das sessões com agentes
-        └── CUSTOS.md          # Tokens de cada sessão
+        ├── CUSTOS.md          # Tokens de cada sessão (gerado por scripts/custos.py)
+        └── NOTAS.md           # Notas das sessões (gerado por scripts/custos.py)
 ```
 
 #### Fluxo de desenvolvimento da AP2
@@ -596,7 +599,7 @@ SUM:
 ```
 
 Cada sessão com agente que gera commit é registrada no mesmo dia em `prompts/sessoes/`, com o
-custo em `CUSTOS.md`. Detalhes em [`AGENTS.md`](AGENTS.md).
+custo em `CUSTOS.md`, gerado por `python scripts/custos.py`. Detalhes em [`AGENTS.md`](AGENTS.md).
 
 ---
 

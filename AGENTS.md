@@ -79,8 +79,10 @@ Todas as sessões de desenvolvimento, conduzidas por agentes de IA ou por humano
 │   └── frontend/      # React + Vite (TypeScript)
 ├── tests/             # Testes automatizados
 └── prompts/
-    └── sessoes/       # Sessões com agentes + CUSTOS.md
+    └── sessoes/       # Sessões com agentes, notas e CUSTOS.md/NOTAS.md (gerados)
 ```
+
+`scripts/custos.py` gera `prompts/sessoes/CUSTOS.md` e `prompts/sessoes/NOTAS.md` (ver §8).
 
 ### Arquitetura (mantida da AP1; proibido "obeliscos")
 
@@ -159,12 +161,21 @@ Spec: SPEC/<arquivo-da-spec>.md
 
 - **Toda sessão com agente** que resultar em commit deve ser registrada no mesmo dia, na íntegra (exportação bruta), incluindo prompts curtos ("continue"), prompts descartados e prompts que causaram erro.
 - Nome: `prompts/sessoes/AAAA-MM-DD-HHMM-<ferramenta>.<ext>` (horário de início, America/Sao_Paulo). Exemplo: `2026-11-10-1933-claudecode.jsonl`.
-- **Custo:** cada sessão precisa de uma linha em `prompts/sessoes/CUSTOS.md`, com tokens de entrada, saída e cache (ou custo em US$).
+- **Custo:** cada sessão aparece como uma linha em `prompts/sessoes/CUSTOS.md`, com tokens de entrada, saída e cache. O `CUSTOS.md` e o `NOTAS.md` são **gerados** por `scripts/custos.py`: não edite os dois à mão.
 - Arquivos acima de 50 MB devem ser compactados com `gzip`.
+
+### Registrar uma sessão (fluxo)
+
+1. **Exporte a sessão principal** como `prompts/sessoes/<sessão>-claudecode.jsonl`, onde `<sessão>` é `AAAA-MM-DD-HHMM` (início da sessão).
+2. **Exporte cada subagente** da sessão como `prompts/sessoes/<sessão>-claudecode-subagente-<n>.jsonl` (`<n>` a partir de 1), com **o mesmo mascaramento** da sessão principal. Os tokens deles entram na linha da sessão principal.
+3. **Crie a nota** `prompts/sessoes/<sessão>.notas.md` se houver algo a explicar: como foi exportada, o que foi mascarado, corte por `timestamp`, o que ficou de fora da contagem. Uma nota que vale para várias sessões fica na primeira delas, e as outras ganham uma nota de uma linha: `Ver a nota em <arquivo>`.
+4. **Rode `python scripts/custos.py` antes do commit** e commite o `CUSTOS.md` e o `NOTAS.md` regravados junto com a sessão.
+
+A soma usa as respostas do agente (`type: assistant`), uma vez por `message.id`, sem o modelo `<synthetic>` (SPEC/2026-11-24-custos-gerados.md). Um PR com sessão só acrescenta arquivos novos. Se a `main` ganhar outra sessão enquanto o PR está aberto, faça o merge da `main` e rode o script de novo: num conflito no `CUSTOS.md` ou no `NOTAS.md`, fique com qualquer um dos lados e regrave. A CI roda `python scripts/custos.py --check` e falha se os dois arquivos estiverem desatualizados.
 
 ### Segurança (CRÍTICO)
 - **Varredura antes de cada commit** de sessão: senhas, chaves (`AIza...`, `sk-...`, `gh*_...`), tokens JWT, conteúdo de `.env`, e-mails pessoais.
-- O único tipo de edição permitido em uma sessão exportada é **mascarar segredos** (por exemplo, `[jwt-removido]`). Registre isso em `CUSTOS.md`. Nenhuma outra edição é permitida.
+- O único tipo de edição permitido em uma sessão exportada é **mascarar segredos** (por exemplo, `[jwt-removido]`). Registre isso na nota da sessão (`<sessão>.notas.md`). Nenhuma outra edição é permitida.
 - Credencial vazada deve ser **revogada e recriada**, não apenas removida.
 
 ---
@@ -201,7 +212,7 @@ Cole a saída no `README.md` e separe linhas de aplicação de linhas de teste.
 - [ ] Commits pequenos, com `Agent:` e `Spec:`.
 - [ ] Testes novos passam e **falham com a mudança revertida**.
 - [ ] CI verde.
-- [ ] Sessão do dia em `prompts/sessoes/`, varrida em busca de segredos, e linha em `CUSTOS.md`.
+- [ ] Sessão do dia em `prompts/sessoes/`, varrida em busca de segredos (subagentes inclusive), e `python scripts/custos.py` rodado (`CUSTOS.md` e `NOTAS.md` em dia).
 - [ ] Nenhum segredo no diff (`.env`, chaves, tokens).
 - [ ] Nenhum código duplicado, gerado em massa ou morto adicionado para inflar linhas.
 - [ ] Revisão e aprovação do outro membro da dupla.
