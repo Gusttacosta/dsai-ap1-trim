@@ -9,7 +9,6 @@ tests/test_appointments.py gerado, que não importava a aplicação. Expediente,
 transições de status e nome do visitante já têm testes próprios e não se repetem aqui.
 """
 
-import re
 import uuid
 from datetime import date, time, timedelta
 from decimal import Decimal
@@ -393,26 +392,30 @@ async def test_day_off_gets_400(client, shop, sessionmaker):
 # ── visitante ───────────────────────────────────────────
 
 
-async def test_guest_booking_creates_a_ghost_client(client, shop, sessionmaker):
+async def test_guest_booking_uses_the_shared_visitor_user(client, shop, sessionmaker):
+    """Um único usuário Visitante, inativo, em vez de um guest_<hex> por agendamento (#21)."""
     response = await book_as_guest(client, shop["barber_id"], local(10), [shop["service_id"]], "Ana Souza")
     assert response.status_code == 201, response.text
     body = response.json()
     assert body["notes"] == "Visitante: Ana Souza"
     assert body["status"] == "confirmed"
 
-    [ghost] = await rows(sessionmaker, User, User.id == uuid.UUID(body["client_id"]))
-    assert re.fullmatch(r"guest_[0-9a-f]{8}@trim\.local", ghost.email)
-    assert ghost.full_name == "Ana Souza"
-    assert ghost.role == UserRole.CLIENT
-    assert ghost.hashed_password and ghost.hashed_password != "x"
-    assert await count(sessionmaker, User) == 3  # cliente, barbeiro e o visitante
+    [guest] = await rows(sessionmaker, User, User.id == uuid.UUID(body["client_id"]))
+    assert guest.email == "visitante@trim.local"
+    assert guest.full_name == "Visitante"
+    assert guest.role == UserRole.CLIENT
+    assert guest.is_active is False
+    assert not guest.hashed_password.startswith("$2")  # não é um hash bcrypt: nenhuma senha entra
+    assert await count(sessionmaker, User) == 3  # cliente, barbeiro e o Visitante
 
 
-async def test_each_guest_booking_gets_its_own_user(client, shop, sessionmaker):
-    first = await book_as_guest(client, shop["barber_id"], local(10), [shop["service_id"]])
-    second = await book_as_guest(client, shop["barber_id"], local(11), [shop["service_id"]])
+async def test_guest_bookings_share_one_user(client, shop, sessionmaker):
+    first = await book_as_guest(client, shop["barber_id"], local(10), [shop["service_id"]], "Ana Souza")
+    second = await book_as_guest(client, shop["barber_id"], local(11), [shop["service_id"]], "Bia Lima")
     assert first.status_code == second.status_code == 201
-    assert first.json()["client_id"] != second.json()["client_id"]
+    assert first.json()["client_id"] == second.json()["client_id"]
+    assert [first.json()["notes"], second.json()["notes"]] == ["Visitante: Ana Souza", "Visitante: Bia Lima"]
+    assert await count(sessionmaker, User) == 3
 
 
 @pytest.mark.parametrize("reason", ["conflito", "serviço inválido"])
@@ -428,7 +431,7 @@ async def test_refused_guest_booking_leaves_no_ghost_user(client, shop, sessionm
     assert response.status_code == 400
     assert response.json()["detail"] == detail
     assert await count(sessionmaker, User) == users_before
-    assert await rows(sessionmaker, User, User.email.like("guest_%")) == []
+    assert await rows(sessionmaker, User, User.email.like("%@trim.local")) == []
 
 
 # ── agendamentos do cliente e agenda do barbeiro ────────

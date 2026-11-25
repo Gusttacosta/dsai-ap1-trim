@@ -56,3 +56,11 @@ class PayCommissionsRequest(BaseModel):
     """Payload para acerto de contas com o barbeiro."""
     barber_id: uuid.UUID
     commission_ids: list[uuid.UUID] = Field(..., min_length=1)
+
+
+class PendingCommissionsSummary(BaseModel):
+    """Comissões pendentes de um barbeiro, para o acerto de contas (#59)."""
+    barber_id: uuid.UUID
+    barber_name: str
+    pending_count: int
+    pending_amount: Decimal
