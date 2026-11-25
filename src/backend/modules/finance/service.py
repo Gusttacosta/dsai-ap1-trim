@@ -18,6 +18,7 @@ from src.backend.modules.auth.models import User
 from src.backend.modules.barbers.models import Barber
 from src.backend.modules.finance.models import BarberCommission, PaymentMethod, Transaction, TransactionType
 from src.backend.modules.finance.schemas import AppointmentCheckoutRequest, ProductCheckoutRequest
+from src.backend.modules.loyalty.service import award_points
 from src.backend.modules.products.models import MovementType
 from src.backend.modules.products.service import ProductService
 from src.backend.modules.products.schemas import InventoryMovementRequest
@@ -100,6 +101,8 @@ class FinanceService:
         )
         self.db.add(transaction)
         await self.db.flush()
+        # Pontos de fidelidade pelo valor pago; o crédito do Trim Club (0,00) não gera pontos (#13).
+        await award_points(self.db, appointment.client_id, amount, "atendimento concluído")
 
         # 5. Cria a Comissão
         commission = BarberCommission(
@@ -154,6 +157,8 @@ class FinanceService:
             user_id=data.user_id
         )
         self.db.add(transaction)
+        # Compra com o cliente identificado também pontua (#13).
+        await award_points(self.db, data.user_id, amount, "compra na loja")
         await self.db.commit()
         await self.db.refresh(transaction)
         return transaction

@@ -21,6 +21,7 @@ from src.backend.modules.appointments.schemas import AppointmentCreateRequest
 from src.backend.modules.auth.models import User, UserRole
 from src.backend.modules.barbers.models import Barber, WorkSchedule
 from src.backend.modules.notifications.models import NotificationType
+from src.backend.modules.loyalty.service import award_points
 from src.backend.modules.notifications.service import notify
 from src.backend.modules.services.models import BarberServiceAssociation, Service
 
@@ -429,6 +430,8 @@ class AppointmentService:
         )
         self.db.add(transaction)
         await self.db.flush()
+        # Pontos do programa de fidelidade pelo atendimento concluído (#13).
+        await award_points(self.db, appointment.client_id, appointment.total_price, "atendimento concluído")
 
         rate = (
             await self.db.execute(select(Barber.commission_rate).where(Barber.id == appointment.barber_id))

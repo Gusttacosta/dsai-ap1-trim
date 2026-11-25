@@ -134,7 +134,9 @@ async def test_completed_appointment_thanks_the_client(client, shop, sessionmake
     set_now(brt(2026, 12, 2, 10, 15))
     await change(client, shop, appointment_id, "completed")
     titles = [t for t, _, _ in await inbox(sessionmaker, shop["client"].id)]
-    assert titles == ["Agendamento recebido", "Atendimento concluído"]
+    # Os pontos do atendimento (#13) chegam no mesmo commit: a ordem entre os dois não é fixa.
+    assert titles[0] == "Agendamento recebido"
+    assert sorted(titles[1:]) == ["Atendimento concluído", "Você ganhou pontos"]
 
 
 async def test_client_cancellation_notifies_the_barber(client, shop, sessionmaker):
