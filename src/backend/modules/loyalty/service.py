@@ -85,8 +85,9 @@ class LoyaltyService:
 
         wallet = await self._locked_wallet(user_id)
         if wallet.balance < points:
+            balance = wallet.balance  # o rollback expira a carteira: ler o saldo antes
             await self.db.rollback()
-            raise ValueError(f"Saldo insuficiente para retirar {points} pts. O cliente possui {wallet.balance} pts.")
+            raise ValueError(f"Saldo insuficiente para retirar {points} pts. O cliente possui {balance} pts.")
         wallet.balance -= points
 
         await self.db.commit()
@@ -172,8 +173,9 @@ class LoyaltyService:
 
         # 3. Valida saldo
         if wallet.balance < reward.points_cost:
+            balance, cost = wallet.balance, reward.points_cost  # o rollback expira os objetos
             await self.db.rollback()
-            raise ValueError(f"Saldo insuficiente. Você possui {wallet.balance} pts e o prêmio custa {reward.points_cost} pts.")
+            raise ValueError(f"Saldo insuficiente. Você possui {balance} pts e o prêmio custa {cost} pts.")
 
         # 4. Debita o saldo
         wallet.balance -= reward.points_cost
