@@ -18,9 +18,20 @@ def packages():
     return sorted(p.name for p in MODULES.iterdir() if p.is_dir() and (p / "__init__.py").exists())
 
 
+def all_routes(routes):
+    """Rotas de verdade. A partir do FastAPI 0.16x, um include_router vira um _IncludedRouter que
+    guarda o router original, em vez de copiar as rotas para o app (#77)."""
+    for route in routes:
+        original = getattr(route, "original_router", None)
+        if original is not None:
+            yield from all_routes(original.routes)
+        else:
+            yield route
+
+
 def registered_modules():
     names = set()
-    for route in app.routes:
+    for route in all_routes(app.routes):
         endpoint = getattr(route, "endpoint", None)
         module = getattr(endpoint, "__module__", "")
         if module.startswith("src.backend.modules."):
