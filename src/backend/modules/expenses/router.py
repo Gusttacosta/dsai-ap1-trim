@@ -17,6 +17,7 @@ from src.backend.modules.auth.models import User
 from src.backend.modules.expenses.schemas import (
     ExpenseCategoryCreateRequest,
     ExpenseCategoryResponse,
+    ExpenseCategoryUpdateRequest,
     ExpenseCreateRequest,
     ExpenseResponse,
     ExpenseUpdateRequest,
@@ -24,6 +25,8 @@ from src.backend.modules.expenses.schemas import (
 from src.backend.modules.expenses.service import ExpenseService
 
 router = APIRouter()
+
+CATEGORY_NOT_FOUND = "Categoria não encontrada."
 
 
 # ── Categorias ───────────────────────────────────────────
@@ -52,6 +55,36 @@ async def create_category(
         raise HTTPException(status_code=400, detail=str(e))
 
 
+@router.put("/categories/{category_id}", response_model=ExpenseCategoryResponse)
+async def update_category(
+    category_id: uuid.UUID,
+    data: ExpenseCategoryUpdateRequest,
+    db: AsyncSession = Depends(get_db),
+    admin: User = Depends(get_current_admin)
+):
+    """(Admin) Renomeia uma categoria."""
+    service = ExpenseService(db)
+    try:
+        category = await service.update_category(category_id, data)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    if category is None:
+        raise HTTPException(status_code=404, detail=CATEGORY_NOT_FOUND)
+    return category
+
+
+@router.delete("/categories/{category_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_category(
+    category_id: uuid.UUID,
+    db: AsyncSession = Depends(get_db),
+    admin: User = Depends(get_current_admin)
+):
+    """(Admin) Apaga uma categoria. As despesas dela continuam, sem categoria."""
+    service = ExpenseService(db)
+    if not await service.delete_category(category_id):
+        raise HTTPException(status_code=404, detail=CATEGORY_NOT_FOUND)
+
+
 # ── Despesas ─────────────────────────────────────────────
 
 @router.get("", response_model=list[ExpenseResponse])
@@ -62,6 +95,8 @@ async def list_expenses(
     admin: User = Depends(get_current_admin)
 ):
     """(Admin) Retorna as despesas pagas (com filtro opcional de data)."""
+    if start_date and end_date and start_date > end_date:
+        raise HTTPException(status_code=422, detail="A data inicial não pode ser depois da data final.")
     service = ExpenseService(db)
     return await service.list_expenses(start_date, end_date)
 
