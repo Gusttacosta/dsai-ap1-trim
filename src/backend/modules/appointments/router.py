@@ -30,7 +30,9 @@ router = APIRouter()
 async def get_availability(
     barber_id: uuid.UUID = Query(..., description="ID do barbeiro"),
     target_date: date = Query(..., description="Data alvo (YYYY-MM-DD)"),
-    duration_minutes: int = Query(..., description="Duração total do(s) serviço(s) em minutos"),
+    duration_minutes: int = Query(
+        ..., ge=1, le=1440, description="Duração total do(s) serviço(s) em minutos (1 a 1440, #57)"
+    ),
     db: AsyncSession = Depends(get_db)
 ):
     """Retorna os horários disponíveis (slots) para um barbeiro em uma data."""
