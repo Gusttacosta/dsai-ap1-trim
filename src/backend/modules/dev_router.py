@@ -283,12 +283,12 @@ async def seed_database(db: AsyncSession = Depends(get_db)):
                 included_shaves=0,
                 is_active=True
             )
-            # O modelo não tem "ilimitado": 30 cortes = um por dia do mês
+            # Cortes ilimitados = NULL (#16); a barba "a cada 15 dias" segue como 2 por mês
             plan2 = SubscriptionPlan(
                 name="Executivo",
                 description="Cortes Ilimitados, Barba a cada 15 dias, Bebida premium cortesia, Cashback de 10%, Prioridade na Fila Walk-in",
                 monthly_price=150.0,
-                included_cuts=30,
+                included_cuts=None,
                 included_shaves=2,
                 is_active=True
             )
