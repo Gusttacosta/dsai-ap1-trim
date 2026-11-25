@@ -7,18 +7,20 @@ Endpoints de fila de espera.
 import uuid
 
 from fastapi import APIRouter, Depends, HTTPException, status
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.backend.database import get_db
 from src.backend.modules.auth.dependencies import get_current_barber_or_admin
-from src.backend.modules.auth.models import User
+from src.backend.modules.auth.models import User, UserRole
+from src.backend.modules.barbers.models import Barber
 from src.backend.modules.walkin.schemas import (
     WalkInAssignRequest,
     WalkInCreateRequest,
     WalkInLiveResponse,
     WalkInResponse,
 )
-from src.backend.modules.walkin.service import WalkInService
+from src.backend.modules.walkin.service import NotFound, WalkInService
 
 router = APIRouter()
 
@@ -33,7 +35,9 @@ async def get_live_queue(db: AsyncSession = Depends(get_db)):
     # Mascarar o nome para privacidade na TV (João Silva -> Joã***)
     response = []
     for item in queue:
-        name_parts = item.customer_name.split()
+        # Um nome só com espaços derrubava a fila inteira com 500 (#69); o schema já recusa,
+        # mas a TV não pode cair por causa de um registro antigo.
+        name_parts = item.customer_name.split() or ["?"]
         first_name = name_parts[0]
         masked = first_name[:3] + "***" if len(first_name) >= 3 else first_name + "***"
         
@@ -55,7 +59,10 @@ async def add_to_queue(
 ):
     """Adiciona um cliente na fila."""
     service = WalkInService(db)
-    return await service.add_to_queue(data)
+    try:
+        return await service.add_to_queue(data)
+    except NotFound as e:
+        raise HTTPException(status_code=404, detail=str(e))
 
 
 @router.put("/{walkin_id}/assign", response_model=WalkInResponse)
@@ -65,10 +72,20 @@ async def assign_to_barber(
     db: AsyncSession = Depends(get_db),
     user: User = Depends(get_current_barber_or_admin)
 ):
-    """Inicia o atendimento (vira Appointment)."""
+    """Inicia o atendimento (vira Appointment). O barbeiro só puxa para a própria cadeira."""
+    acting_barber_id = None
+    if user.role != UserRole.ADMIN:
+        stmt = select(Barber.id).where(Barber.user_id == user.id)
+        acting_barber_id = (await db.execute(stmt)).scalar_one_or_none()
+        if acting_barber_id is None:
+            raise HTTPException(status_code=403, detail="Perfil de barbeiro não encontrado.")
     service = WalkInService(db)
     try:
-        return await service.assign_to_barber(walkin_id, data)
+        return await service.assign_to_barber(walkin_id, data, acting_barber_id)
+    except NotFound as e:
+        raise HTTPException(status_code=404, detail=str(e))
+    except PermissionError as e:
+        raise HTTPException(status_code=403, detail=str(e))
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
 

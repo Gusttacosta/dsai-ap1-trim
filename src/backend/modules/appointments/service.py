@@ -20,6 +20,8 @@ from src.backend.modules.appointments.models import Appointment, AppointmentItem
 from src.backend.modules.appointments.schemas import AppointmentCreateRequest
 from src.backend.modules.auth.models import User, UserRole
 from src.backend.modules.barbers.models import Barber, WorkSchedule
+from src.backend.modules.notifications.models import NotificationType
+from src.backend.modules.notifications.service import notify
 from src.backend.modules.services.models import BarberServiceAssociation, Service
 
 
@@ -46,6 +48,14 @@ STAFF_TRANSITIONS = {
     },
 }
 AFTER_START_STATUSES = {AppointmentStatus.COMPLETED, AppointmentStatus.NO_SHOW}
+
+# Avisos ao cliente quando a barbearia muda o status (#75).
+APPOINTMENT_NOTICE = NotificationType.APPOINTMENT_REMINDER
+STATUS_NOTICES = {
+    AppointmentStatus.CONFIRMED: ("Agendamento confirmado", "Seu horário de {when} foi confirmado."),
+    AppointmentStatus.CANCELLED: ("Agendamento cancelado", "A barbearia cancelou o seu horário de {when}."),
+    AppointmentStatus.COMPLETED: ("Atendimento concluído", "Obrigado pela visita de {when}!"),
+}
 
 
 @dataclass(frozen=True)
@@ -294,6 +304,11 @@ class AppointmentService:
             )
             self.db.add(item)
 
+        # Avisos (#75): o cliente recebe a confirmação do pedido, e o barbeiro, o novo horário.
+        when = self._when(appointment.start_datetime)
+        await notify(self.db, client_id, "Agendamento recebido", f"Seu horário de {when} foi registrado.", APPOINTMENT_NOTICE)
+        await self._notify_barber(appointment.barber_id, "Novo agendamento", f"Você tem um novo horário em {when}.")
+
         await self.db.commit()
         
         # Dá refresh carregando a relation `items`
@@ -330,9 +345,21 @@ class AppointmentService:
             raise ValueError(CANCEL_STARTED_ERROR)
 
         appointment.status = AppointmentStatus.CANCELLED
+        await self._notify_barber(
+            appointment.barber_id, "Agendamento cancelado",
+            f"O cliente cancelou o horário de {self._when(appointment.start_datetime)}.",
+        )
         await self.db.commit()
         await self.db.refresh(appointment)
         return appointment
+
+    def _when(self, start: datetime) -> str:
+        return start.astimezone(self.shop_tz).strftime("%d/%m às %H:%M")
+
+    async def _notify_barber(self, barber_id: uuid.UUID, title: str, message: str) -> None:
+        user_id = (await self.db.execute(select(Barber.user_id).where(Barber.id == barber_id))).scalar_one_or_none()
+        if user_id is not None:
+            await notify(self.db, user_id, title, message, APPOINTMENT_NOTICE)
 
     async def change_status_by_staff(
         self, appointment_id: uuid.UUID, new_status: AppointmentStatus, user: User
@@ -367,6 +394,13 @@ class AppointmentService:
             await self._charge_once(appointment)
 
         appointment.status = new_status
+        # O cliente fica sabendo das mudanças feitas pela barbearia (#75).
+        if new_status in STATUS_NOTICES:
+            title, text = STATUS_NOTICES[new_status]
+            await notify(
+                self.db, appointment.client_id, title, text.format(when=self._when(appointment.start_datetime)),
+                APPOINTMENT_NOTICE,
+            )
         await self.db.commit()
         await self.db.refresh(appointment)
         return appointment

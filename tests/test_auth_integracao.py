@@ -709,15 +709,14 @@ async def test_redefinicao_com_senha_fraca_responde_422(new_password, sessionmak
     assert (await login(client)).status_code == 200
 
 
-async def test_cada_pedido_gera_um_token_novo_e_os_dois_valem(sessionmaker, client):
+async def test_cada_pedido_gera_um_token_novo_e_invalida_o_anterior(sessionmaker, client):
     await register_ok(client)
     await forgot(client)
     await forgot(client)
 
-    tokens = await tokens_of(sessionmaker, PasswordResetToken, "pessoa@teste.com")
+    tokens = sorted(await tokens_of(sessionmaker, PasswordResetToken, "pessoa@teste.com"), key=lambda t: t.created_at)
     assert len(tokens) == 2
     assert tokens[0].token != tokens[1].token
+    # Só o link mais recente troca a senha (#35, SPEC/2026-11-25-auth-admin-usuarios.md).
+    assert (await reset(client, tokens[0].token, new_password="terceiraSenha789")).status_code == 400
     assert (await reset(client, tokens[1].token)).status_code == 200
-    # Hoje o pedido novo não invalida o anterior: o primeiro token ainda troca a senha.
-    assert (await reset(client, tokens[0].token, new_password="terceiraSenha789")).status_code == 200
-    assert (await login(client, password="terceiraSenha789")).status_code == 200
