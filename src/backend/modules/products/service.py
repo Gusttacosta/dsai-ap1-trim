@@ -107,9 +107,12 @@ class ProductService:
     # ── Estoque ──────────────────────────────────────────────
 
     async def register_movement(
-        self, product_id: uuid.UUID, user_id: uuid.UUID, data: InventoryMovementRequest
+        self, product_id: uuid.UUID, user_id: uuid.UUID, data: InventoryMovementRequest, *, commit: bool = True
     ) -> Product:
-        """Registra a movimentação e atualiza o saldo atomicamente."""
+        """Registra a movimentação e atualiza o saldo atomicamente.
+
+        Com `commit=False`, só faz o flush: quem chama grava junto o resto da operação. A venda no
+        caixa usa isso para a baixa do estoque e a transação entrarem no mesmo commit (#59)."""
         # Se for saída, a quantidade tem que ser negativa (ou vice-versa dependendo da interpretação).
         # Vamos assumir que a request já manda o sinal correto (+ ou -) no `data.quantity`.
         
@@ -143,6 +146,9 @@ class ProductService:
         
         # O commit garantirá o CheckConstraint `chk_stock_non_negative` do DB
         try:
+            if not commit:
+                await self.db.flush()
+                return product
             await self.db.commit()
             await self.db.refresh(product)
             return product
