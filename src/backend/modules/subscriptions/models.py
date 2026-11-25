@@ -44,15 +44,16 @@ class SubscriptionPlan(Base):
         Numeric(10, 2),
         nullable=False,
     )
-    included_cuts: Mapped[int] = mapped_column(
+    # NULL = ilimitado, 0 = não incluso, n = n por ciclo (#16, SPEC/2026-11-25-alembic-migracoes.md).
+    included_cuts: Mapped[int | None] = mapped_column(
         Integer,
         default=0,
-        nullable=False,
+        nullable=True,
     )
-    included_shaves: Mapped[int] = mapped_column(
+    included_shaves: Mapped[int | None] = mapped_column(
         Integer,
         default=0,
-        nullable=False,
+        nullable=True,
     )
     discount_percentage: Mapped[float] = mapped_column(
         Numeric(5, 2),

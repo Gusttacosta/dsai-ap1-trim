@@ -3,12 +3,22 @@ import { useNavigate } from 'react-router-dom';
 import api from '../api';
 import styles from './TrimClub.module.css';
 
-interface Plan {
+// Campos de GET /subscriptions/plans. A tela lia `price` e `billing_cycle`, que a API não tem, e
+// mostrava "R$ NaN/ano" (SPEC/2026-11-25-alembic-migracoes.md).
+export interface Plan {
   id: string;
   name: string;
-  description: string;
-  price: number;
-  billing_cycle: string;
+  description: string | null;
+  monthly_price: string | number;
+  /** null = ilimitado (#16) */
+  included_cuts: number | null;
+  included_shaves: number | null;
+}
+
+/** "Ilimitados", "2 por mês" ou nada, quando o plano não inclui o serviço. */
+export function quantityLabel(value: number | null): string | null {
+  if (value === null) return 'Ilimitados';
+  return value > 0 ? `${value} por mês` : null;
 }
 
 const TrimClub = () => {
@@ -64,12 +74,18 @@ const TrimClub = () => {
             {index === 1 && <div className={styles.popularBadge}>MAIS ASSINADO</div>}
             <div className={styles.planName}>{plan.name}</div>
             <div className={styles.planPrice}>
-              R$ {Number(plan.price).toFixed(2)}<span>/{plan.billing_cycle === 'MONTHLY' ? 'mês' : 'ano'}</span>
+              R$ {Number(plan.monthly_price).toFixed(2).replace('.', ',')}<span>/mês</span>
             </div>
             <ul className={styles.featureList}>
-              {plan.description.split(',').map((feature, i) => (
-                <li key={i}>{feature.trim()}</li>
-              ))}
+              {quantityLabel(plan.included_cuts) && <li>Cortes: {quantityLabel(plan.included_cuts)}</li>}
+              {quantityLabel(plan.included_shaves) && <li>Barbas: {quantityLabel(plan.included_shaves)}</li>}
+              {(plan.description ?? '')
+                .split(',')
+                .map((feature) => feature.trim())
+                .filter(Boolean)
+                .map((feature, i) => (
+                  <li key={i}>{feature}</li>
+                ))}
             </ul>
             <button className={styles.subscribeBtn} onClick={() => handleSubscribe(plan.id)}>
               Assinar {plan.name}

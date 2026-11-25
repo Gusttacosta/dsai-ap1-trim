@@ -151,9 +151,16 @@ source venv/bin/activate
 uvicorn src.backend.main:app --host 0.0.0.0 --port 8001
 ```
 
-**Não há migrações.** A pasta `alembic/versions/` está vazia, então `alembic upgrade head` não faz
-nada (ver #6). As tabelas são criadas pelo próprio backend ao iniciar (`Base.metadata.create_all`
-em `src/backend/main.py`). Para conferir: `curl http://<ip-da-vm>:8001/health`.
+**Migrações (#6).** O esquema vem das migrações do Alembic em `alembic/versions/`. Rode
+`python scripts/migrate.py` antes de subir o backend. Num banco vazio, ele cria tudo. Num banco
+antigo, criado pelo `create_all`, ele registra a revisão inicial (`stamp 0001`) e aplica só o que vem
+depois. Em desenvolvimento (`APP_ENV=development`), o backend ainda cria as tabelas que faltarem ao
+iniciar. Em produção, só as migrações mexem no esquema. Para conferir:
+`curl http://<ip-da-vm>:8001/health`.
+
+Uma mudança num modelo precisa de uma migração nova:
+`alembic revision --autogenerate -m "o que mudou"`. Depois, revise o arquivo gerado.
+O teste `tests/test_migracoes.py` falha se os modelos e as migrações divergirem.
 
 #### 5. Frontend
 
@@ -358,8 +365,8 @@ Neste ambiente, a suíte do backend (cerca de 13 mil testes) leva de 1,5 a 2,5 m
 > cp .env.example .env
 > # Edite o .env com suas credenciais do PostgreSQL
 > 
-> # Execute as migrations
-> alembic upgrade head
+> # Execute as migrations (ver #6)
+> python scripts/migrate.py
 > 
 > # Execute o servidor de desenvolvimento
 > uvicorn src.backend.main:app --reload
@@ -546,7 +553,7 @@ SUM:
 ├── pytest.ini                 # pythonpath = . (para importar src.backend nos testes)
 ├── Procfile                   # Herdado da AP1
 ├── alembic.ini
-├── alembic/                   # Configuração do Alembic; versions/ vazia (sem migrações, ver #6)
+├── alembic/                   # Migrações do Alembic (scripts/migrate.py as aplica, ver #6)
 ├── .env.example               # Modelo do .env do backend
 ├── .github/
 │   └── workflows/

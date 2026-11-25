@@ -25,15 +25,17 @@ class SubscriptionPlanCreateRequest(BaseModel):
     name: str = Field(..., min_length=1, max_length=100)
     description: str | None = None
     monthly_price: Decimal = Field(..., gt=0)
-    included_cuts: int = Field(default=0, ge=0)
-    included_shaves: int = Field(default=0, ge=0)
+    # null = ilimitado (#16); omitido = 0 (não incluso)
+    included_cuts: int | None = Field(default=0, ge=0)
+    included_shaves: int | None = Field(default=0, ge=0)
     discount_percentage: Decimal = Field(default=Decimal("0.0"), ge=0, le=100)
 
 
 class SubscriptionPlanUpdateRequest(BaseModel):
     """Payload para editar um plano de assinatura.
 
-    `null` só é aceito na descrição. `is_active` reativa ou desativa o plano (#64)."""
+    `null` só é aceito na descrição e nas quantidades, em que significa "ilimitado" (#16).
+    `is_active` reativa ou desativa o plano (#64)."""
     model_config = ConfigDict(str_strip_whitespace=True)
 
     name: str | None = Field(None, min_length=1, max_length=100)
@@ -45,7 +47,7 @@ class SubscriptionPlanUpdateRequest(BaseModel):
     is_active: bool | None = None
 
     @field_validator(
-        "name", "monthly_price", "included_cuts", "included_shaves", "discount_percentage", "is_active"
+        "name", "monthly_price", "discount_percentage", "is_active"
     )
     @classmethod
     def reject_null(cls, v):
@@ -75,8 +77,8 @@ class SubscriptionPlanResponse(BaseModel):
     name: str
     description: str | None
     monthly_price: Decimal
-    included_cuts: int
-    included_shaves: int
+    included_cuts: int | None
+    included_shaves: int | None
     discount_percentage: Decimal
     is_active: bool
     created_at: datetime

@@ -234,9 +234,8 @@ async def test_subscribe_and_cancel_notify_the_member(client, sessionmaker, memb
 # ── 6 a 8. planos ───────────────────────────────────────
 
 
-@pytest.mark.parametrize(
-    "field", ["name", "monthly_price", "included_cuts", "included_shaves", "discount_percentage", "is_active"]
-)
+# included_cuts e included_shaves aceitam null desde a #16: null é "ilimitado".
+@pytest.mark.parametrize("field", ["name", "monthly_price", "discount_percentage", "is_active"])
 async def test_put_plan_with_null_gets_422(client, sessionmaker, admin, plan, field):
     response = await client.put(f"{URL}/plans/{plan['id']}", json={field: None}, headers=auth(admin))
     assert response.status_code == 422

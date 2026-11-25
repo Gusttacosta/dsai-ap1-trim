@@ -18,7 +18,8 @@ services:
     branch: main
     autoDeploy: true
     buildCommand: pip install -r requirements.txt
-    startCommand: uvicorn src.backend.main:app --host 0.0.0.0 --port $PORT
+    # As migrações rodam antes da API (#6): na primeira vez, o banco antigo recebe o stamp da 0001.
+    startCommand: python scripts/migrate.py && uvicorn src.backend.main:app --host 0.0.0.0 --port $PORT
     healthCheckPath: /health
     envVars:
       - key: PYTHON_VERSION
