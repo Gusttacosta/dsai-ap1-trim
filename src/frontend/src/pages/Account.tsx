@@ -1,4 +1,5 @@
 import { Navigate } from 'react-router-dom';
+import NotificationsList from '../components/account/NotificationsList';
 import PasswordForm from '../components/account/PasswordForm';
 import ProfileForm from '../components/account/ProfileForm';
 import styles from '../components/account/Account.module.css';
@@ -58,6 +59,7 @@ const Account = ({ loginPath }: Props) => {
 
       <ProfileForm user={user} onSave={saveProfile} />
       <PasswordForm onChangePassword={changePassword} />
+      <NotificationsList />
     </div>
   );
 };
