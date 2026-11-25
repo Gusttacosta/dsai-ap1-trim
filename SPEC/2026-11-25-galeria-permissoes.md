@@ -1,7 +1,7 @@
 # Galeria: barbeiro sem perfil não apaga foto alheia, e envios inválidos param de dar 500 (2026-11-25)
 
 > Complementa: SPEC/2026-11-24-testes-integracao-gallery.md (PR #72, onde os achados apareceram)
-> Issue: #71 (itens 1 e 3, primeira parte)
+> Issue: #71 (todos os itens)
 
 ## O quê e por quê
 
@@ -39,14 +39,42 @@ mensagem, e não como um erro do servidor.
   nada é gravado. Com exatamente 1.000 caracteres, a foto é aceita.
 - [ ] Os testes falham quando as mudanças são revertidas (mutação manual: tirar cada checagem nova).
 
-## Fora do escopo (continuam na #71)
+## Ampliação: o resto da #71 (mesmo dia)
 
-- Admin sem perfil enviar foto em nome de um barbeiro (item 2).
-- `tag_ids` desconhecidos ignorados, tag com nome vazio, renomear e apagar tags (resto do item 3).
-- Recusar uma foto com motivo, tirar a aprovação e esconder as fotos de barbeiro desativado (item 4).
+Para fechar a #71 inteira, este PR também cobre os itens 2, 3 e 4. O motivo da recusa vai para o
+barbeiro como uma notificação (o módulo `notifications` já existe), e não numa coluna nova. Assim
+não é preciso migrar o banco de produção.
+
+- [ ] **Item 2: envio pelo admin.**
+  - `POST /api/gallery` aceita `barber_id`. O admin envia em nome de qualquer barbeiro ativo,
+    mesmo sem perfil próprio, e a foto já entra aprovada;
+  - admin sem perfil e sem `barber_id` responde 400 `Informe o barbeiro da foto (barber_id).`;
+  - barbeiro desconhecido ou desativado responde 404;
+  - um barbeiro que informa outro `barber_id` recebe 403. O próprio `barber_id` é aceito;
+  - o barbeiro sem perfil continua recebendo 404, como fixam os testes do PR #72.
+- [ ] **Item 3: tags.**
+  - `tag_ids` desconhecidos respondem 404 `Uma ou mais tags não existem.`, sem gravar a foto. Um
+    id repetido conta uma vez;
+  - o nome da tag é aparado e exige pelo menos 1 caractere (422);
+  - `PUT /api/gallery/tags/{id}` renomeia, e um nome repetido responde 400;
+  - `DELETE /api/gallery/tags/{id}` apaga a tag, e as fotos continuam sem ela;
+  - uma tag desconhecida responde 404 `Tag não encontrada.`;
+  - as rotas de tag são só para o admin.
+- [ ] **Item 4: moderação.**
+  - `PUT /api/gallery/{id}/reject` com `reason` (de 1 a 500 caracteres) apaga a foto pendente e
+    cria uma notificação para o barbeiro: título `Foto recusada na galeria` e o motivo na
+    mensagem;
+  - uma foto já aprovada não é recusada (400);
+  - `PUT /api/gallery/{id}/unapprove` tira a foto da galeria pública, e ela volta para
+    `/pending`;
+  - as duas rotas são só para o admin, e um id desconhecido responde 404;
+  - as fotos de um barbeiro com o perfil ou a conta desativados saem da galeria pública, também
+    no filtro por barbeiro.
 
 ## Testes
 
-`tests/test_galeria_permissoes.py`, com o PostgreSQL de `TEST_DATABASE_URL` e as fixtures de
-`tests/agenda_fixtures.py` e `tests/api_helpers.py`. Todo teste de API pede o `sessionmaker`, que
-é onde fica o override do `get_db`.
+- `tests/test_galeria_permissoes.py` (itens 1 e 3, primeira parte) e
+  `tests/test_galeria_moderacao.py` (itens 2, 3 e 4);
+- os dois usam o PostgreSQL de `TEST_DATABASE_URL` e as fixtures de `tests/agenda_fixtures.py` e
+  `tests/api_helpers.py`;
+- todo teste de API pede o `sessionmaker`, que é onde fica o override do `get_db`.
