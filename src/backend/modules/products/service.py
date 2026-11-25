@@ -6,7 +6,7 @@ Regras de negócio do catálogo de produtos e da trilha de auditoria do estoque.
 
 import uuid
 
-from sqlalchemy import select, update
+from sqlalchemy import func, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.exc import IntegrityError
 
@@ -29,8 +29,8 @@ class ProductService:
             if existing_sku:
                 raise ValueError(f"Já existe um produto com o SKU '{data.sku}'.")
         
-        # Verifica se o nome já existe
-        stmt = select(Product).where(Product.name == data.name)
+        # Verifica se o nome já existe, sem diferenciar maiúsculas (#61)
+        stmt = select(Product).where(func.lower(Product.name) == data.name.lower())
         existing_name = (await self.db.execute(stmt)).scalar_one_or_none()
         if existing_name:
             raise ValueError(f"Já existe um produto com o nome '{data.name}'.")
@@ -52,7 +52,9 @@ class ProductService:
 
         # Validações de unicidade se houver alteração
         if data.name is not None and data.name != product.name:
-            stmt_name = select(Product).where(Product.name == data.name)
+            stmt_name = select(Product).where(
+                func.lower(Product.name) == data.name.lower(), Product.id != product.id
+            )
             if (await self.db.execute(stmt_name)).scalar_one_or_none():
                 raise ValueError(f"Já existe um produto com o nome '{data.name}'.")
                 
@@ -107,9 +109,12 @@ class ProductService:
     # ── Estoque ──────────────────────────────────────────────
 
     async def register_movement(
-        self, product_id: uuid.UUID, user_id: uuid.UUID, data: InventoryMovementRequest
+        self, product_id: uuid.UUID, user_id: uuid.UUID, data: InventoryMovementRequest, *, commit: bool = True
     ) -> Product:
-        """Registra a movimentação e atualiza o saldo atomicamente."""
+        """Registra a movimentação e atualiza o saldo atomicamente.
+
+        Com `commit=False`, só faz o flush: quem chama grava junto o resto da operação. A venda no
+        caixa usa isso para a baixa do estoque e a transação entrarem no mesmo commit (#59)."""
         # Se for saída, a quantidade tem que ser negativa (ou vice-versa dependendo da interpretação).
         # Vamos assumir que a request já manda o sinal correto (+ ou -) no `data.quantity`.
         
@@ -120,6 +125,11 @@ class ProductService:
         
         if not product:
             raise ValueError("Produto não encontrado.")
+
+        # Produto desativado não vende nem recebe reposição; perda e ajuste continuam valendo, para
+        # zerar o estoque que sobrou (#61). A venda no caixa passa por aqui (#59).
+        if not product.is_active and data.movement_type in (MovementType.SALE, MovementType.RESTOCK):
+            raise ValueError("Produto desativado: só aceita perda ou ajuste de estoque.")
 
         # 2. Verifica se a movimentação resultará em saldo negativo
         new_quantity = product.stock_quantity + data.quantity
@@ -143,6 +153,9 @@ class ProductService:
         
         # O commit garantirá o CheckConstraint `chk_stock_non_negative` do DB
         try:
+            if not commit:
+                await self.db.flush()
+                return product
             await self.db.commit()
             await self.db.refresh(product)
             return product

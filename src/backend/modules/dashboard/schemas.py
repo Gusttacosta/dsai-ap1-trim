@@ -29,6 +29,13 @@ class DailyOverviewResponse(BaseModel):
     no_show_appointments: int
     cancelled_appointments: int
     ticket_medio: Decimal
+    # Faturamento do dia: era calculado e descartado (#67)
+    total_revenue: Decimal
+    # Ocupação da agenda (SPEC/2026-09-29-dashboard.md, #67): minutos agendados (pendentes,
+    # confirmados e concluídos) sobre os minutos de expediente dos barbeiros ativos, sem o almoço.
+    booked_minutes: int
+    available_minutes: int
+    occupancy_rate: Decimal
 
 
 class BarberPerformanceResponse(BaseModel):
