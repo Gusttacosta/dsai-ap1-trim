@@ -12,6 +12,7 @@ from sqlalchemy.orm import selectinload
 
 from src.backend.modules.gallery.models import GalleryTag, PortfolioImage
 from src.backend.modules.gallery.schemas import GalleryTagCreateRequest, PortfolioImageCreateRequest
+from src.backend.modules.services.models import Service
 
 
 class GalleryService:
@@ -41,7 +42,10 @@ class GalleryService:
 
     async def upload_image(self, barber_id: uuid.UUID, data: PortfolioImageCreateRequest, auto_approve: bool = False) -> PortfolioImage:
         """Adiciona a referência da foto. Se for admin, auto_approve=True."""
-        
+        # Sem esta checagem, a FK estoura no commit e a rota responde 500 (#71).
+        if data.service_id is not None and await self.db.get(Service, data.service_id) is None:
+            raise LookupError("Serviço não encontrado.")
+
         # Busca as tags solicitadas
         tags = []
         if data.tag_ids:
@@ -100,15 +104,17 @@ class GalleryService:
         await self.db.commit()
         return image
 
-    async def delete_image(self, image_id: uuid.UUID, requesting_barber_id: uuid.UUID | None = None) -> bool:
-        """Deleta a imagem. Se requesting_barber_id for passado, checa posse."""
+    async def delete_image(
+        self, image_id: uuid.UUID, requesting_barber_id: uuid.UUID | None = None, *, is_admin: bool = False
+    ) -> bool:
+        """Deleta a imagem. Fora do admin, só o dono apaga: sem barbeiro, não há posse (#71)."""
         stmt = select(PortfolioImage).where(PortfolioImage.id == image_id)
         image = (await self.db.execute(stmt)).scalar_one_or_none()
-        
+
         if not image:
             return False
-            
-        if requesting_barber_id and image.barber_id != requesting_barber_id:
+
+        if not is_admin and image.barber_id != requesting_barber_id:
             raise ValueError("Você não tem permissão para deletar a foto de outro barbeiro.")
             
         await self.db.delete(image)

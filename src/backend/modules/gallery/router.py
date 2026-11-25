@@ -75,7 +75,10 @@ async def upload_image(
 
     auto_approve = user.role == UserRole.ADMIN
     service = GalleryService(db)
-    return await service.upload_image(barber_id, data, auto_approve)
+    try:
+        return await service.upload_image(barber_id, data, auto_approve)
+    except LookupError as e:
+        raise HTTPException(status_code=404, detail=str(e))
 
 
 @router.get("/pending", response_model=list[PortfolioImageResponse])
@@ -111,13 +114,17 @@ async def delete_image(
     """(Barbeiro/Admin) Exclui uma foto. Barbeiro só pode excluir as próprias."""
     service = GalleryService(db)
     
+    is_admin = user.role == UserRole.ADMIN
     requesting_barber_id = None
-    if user.role != UserRole.ADMIN:
+    if not is_admin:
         stmt = select(Barber.id).where(Barber.user_id == user.id)
         requesting_barber_id = (await db.execute(stmt)).scalar_one_or_none()
-        
+        # Sem perfil, não há como conferir a posse (#71).
+        if requesting_barber_id is None:
+            raise HTTPException(status_code=403, detail="Perfil de barbeiro não encontrado.")
+
     try:
-        success = await service.delete_image(image_id, requesting_barber_id)
+        success = await service.delete_image(image_id, requesting_barber_id, is_admin=is_admin)
         if not success:
             raise HTTPException(status_code=404, detail="Imagem não encontrada.")
     except ValueError as e:

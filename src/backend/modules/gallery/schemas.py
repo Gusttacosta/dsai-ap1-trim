@@ -7,7 +7,9 @@ Schemas Pydantic para validação das imagens e tags do portfólio.
 import uuid
 from datetime import datetime
 
-from pydantic import BaseModel, ConfigDict, Field, HttpUrl
+from pydantic import BaseModel, ConfigDict, Field, HttpUrl, field_validator
+
+IMAGE_URL_MAX = 1000
 
 
 class GalleryTagCreateRequest(BaseModel):
@@ -26,6 +28,14 @@ class PortfolioImageCreateRequest(BaseModel):
     service_id: uuid.UUID | None = None
     description: str | None = Field(None, max_length=500)
     tag_ids: list[uuid.UUID] = Field(default_factory=list)
+
+    @field_validator("image_url")
+    @classmethod
+    def fits_the_column(cls, value: HttpUrl) -> HttpUrl:
+        # A coluna é String(1000), e o HttpUrl aceita até 2.083 caracteres (#71).
+        if len(str(value)) > IMAGE_URL_MAX:
+            raise ValueError(f"A URL da imagem pode ter no máximo {IMAGE_URL_MAX} caracteres.")
+        return value
 
 
 class PortfolioImageResponse(BaseModel):
