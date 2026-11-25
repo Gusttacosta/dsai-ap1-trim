@@ -11,6 +11,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.backend.database import get_db
+from src.backend.modules.auth.guest import guest_user_id
 from src.backend.modules.auth.dependencies import get_current_admin, get_current_barber_or_admin, get_current_user
 from src.backend.modules.auth.models import User
 from src.backend.modules.appointments.schemas import (
@@ -69,20 +70,9 @@ async def create_guest_appointment(
     data: GuestAppointmentCreateRequest,
     db: AsyncSession = Depends(get_db),
 ):
-    """(Visitante) Cria um agendamento e gera um usuário fantasma."""
-    from src.backend.modules.auth.models import User, UserRole
-    from src.backend.modules.auth.security import get_password_hash
-    
-    # Criar usuário fantasma
-    dummy_email = f"guest_{uuid.uuid4().hex[:8]}@trim.local"
-    new_user = User(
-        email=dummy_email,
-        hashed_password=get_password_hash(uuid.uuid4().hex),
-        full_name=data.guest_name,
-        role=UserRole.CLIENT,
-    )
-    db.add(new_user)
-    await db.flush()
+    """(Visitante) Cria um agendamento no nome do usuário Visitante; o nome fica nas observações."""
+    # Um único usuário para todos os visitantes, em vez de um guest_<hex> por agendamento (#21).
+    guest_id = await guest_user_id(db)
 
     # Montar request normal
     app_req = AppointmentCreateRequest(
@@ -94,7 +84,7 @@ async def create_guest_appointment(
 
     service = AppointmentService(db)
     try:
-        appointment = await service.create_appointment(new_user.id, app_req)
+        appointment = await service.create_appointment(guest_id, app_req)
         await db.commit()
         return appointment
     except ValueError as e:
