@@ -124,7 +124,8 @@ async def test_nome_gravado_e_o_nome_limpo(client, sessionmaker):
     async with sessionmaker() as db:
         client_id = (await db.execute(select(Appointment.client_id))).scalar_one()
         guest = await db.get(User, client_id)
-    assert guest.full_name == "ana de souza"
+    # O nome fica no agendamento; o usuário é o Visitante compartilhado (#21).
+    assert guest.full_name == "Visitante"
 
 
 async def test_limite_conta_depois_da_limpeza(client, sessionmaker):

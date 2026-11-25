@@ -15,5 +15,9 @@ export default defineConfig(({ command, mode }) => {
 
   return {
     plugins: [react()],
+    // Porta fixa (#11): se um Vite órfão ainda ocupa a 5173, o `npm run dev` falha com "porta em uso"
+    // em vez de subir em outra porta sem avisar, deixando o navegador no Vite antigo.
+    server: { port: 5173, strictPort: true },
+    preview: { port: 4173, strictPort: true },
   }
 })
