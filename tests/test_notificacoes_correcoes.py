@@ -95,34 +95,46 @@ async def test_guest_booking_does_not_notify_the_ghost(client, shop, sessionmake
     assert [t for t, _, _ in await inbox(sessionmaker, shop["barber_user"].id)] == ["Novo agendamento"]
 
 
-@pytest.mark.parametrize(
-    "path, title",
-    [
-        ([S.CONFIRMED], "Agendamento confirmado"),
-        ([S.CANCELLED], "Agendamento cancelado"),
-    ],
-)
-async def test_staff_status_change_notifies_the_client(client, shop, sessionmaker, path, title):
-    appointment_id = await book(client, shop)
-    for status in path:
-        response = await client.put(
-            f"/api/appointments/{appointment_id}/status", json={"status": status.value},
-            headers=auth(shop["barber_user"]),
+async def pending_booking(maker, shop):
+    """Agendamento pendente (o da rota já nasce confirmado)."""
+    async with maker() as db:
+        start = brt(2026, 12, 2, 15, 0)
+        appointment = Appointment(
+            client_id=shop["client"].id, barber_id=shop["barber_id"], start_datetime=start,
+            end_datetime=start + timedelta(minutes=30), status=S.PENDING, total_price=40,
         )
-        assert response.status_code == 200, response.text
+        db.add(appointment)
+        await db.commit()
+        return appointment.id
+
+
+async def change(client, shop, appointment_id, status):
+    response = await client.put(
+        f"/api/appointments/{appointment_id}/status", json={"status": status}, headers=auth(shop["barber_user"]),
+    )
+    assert response.status_code == 200, response.text
+
+
+async def test_confirming_notifies_the_client(client, shop, sessionmaker):
+    await change(client, shop, await pending_booking(sessionmaker, shop), "confirmed")
+    assert await inbox(sessionmaker, shop["client"].id) == [
+        ("Agendamento confirmado", "Seu horário de 02/12 às 15:00 foi confirmado.", NotificationType.APPOINTMENT_REMINDER)
+    ]
+
+
+async def test_cancelling_by_the_shop_notifies_the_client(client, shop, sessionmaker):
+    appointment_id = await book(client, shop)
+    await change(client, shop, appointment_id, "cancelled")
     titles = [t for t, _, _ in await inbox(sessionmaker, shop["client"].id)]
-    assert titles == ["Agendamento recebido", title]
+    assert titles == ["Agendamento recebido", "Agendamento cancelado"]
 
 
 async def test_completed_appointment_thanks_the_client(client, shop, sessionmaker, set_now):
     appointment_id = await book(client, shop)
-    staff = auth(shop["barber_user"])
-    url = f"/api/appointments/{appointment_id}/status"
-    assert (await client.put(url, json={"status": "confirmed"}, headers=staff)).status_code == 200
     set_now(brt(2026, 12, 2, 10, 15))
-    assert (await client.put(url, json={"status": "completed"}, headers=staff)).status_code == 200
+    await change(client, shop, appointment_id, "completed")
     titles = [t for t, _, _ in await inbox(sessionmaker, shop["client"].id)]
-    assert titles == ["Agendamento recebido", "Agendamento confirmado", "Atendimento concluído"]
+    assert titles == ["Agendamento recebido", "Atendimento concluído"]
 
 
 async def test_client_cancellation_notifies_the_barber(client, shop, sessionmaker):
