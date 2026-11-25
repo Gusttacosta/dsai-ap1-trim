@@ -14,6 +14,7 @@ from sqlalchemy.orm import selectinload
 from src.backend.modules.expenses.models import Expense, ExpenseCategory
 from src.backend.modules.expenses.schemas import (
     ExpenseCategoryCreateRequest,
+    ExpenseCategoryUpdateRequest,
     ExpenseCreateRequest,
     ExpenseUpdateRequest,
 )
@@ -36,6 +37,27 @@ class ExpenseService:
         await self.db.commit()
         await self.db.refresh(category)
         return category
+
+    async def update_category(self, category_id: uuid.UUID, data: ExpenseCategoryUpdateRequest) -> ExpenseCategory | None:
+        """Renomeia a categoria, mantendo o nome único (#65)."""
+        category = await self.db.get(ExpenseCategory, category_id)
+        if category is None:
+            return None
+        stmt = select(ExpenseCategory.id).where(
+            ExpenseCategory.name == data.name, ExpenseCategory.id != category_id
+        )
+        if (await self.db.execute(stmt)).scalar_one_or_none():
+            raise ValueError(f"Já existe uma categoria chamada '{data.name}'.")
+        category.name = data.name
+        await self.db.commit()
+        await self.db.refresh(category)
+        return category
+
+    async def delete_category(self, category_id: uuid.UUID) -> bool:
+        """Apaga a categoria. As despesas dela ficam sem categoria (FK com SET NULL, #65)."""
+        result = await self.db.execute(delete(ExpenseCategory).where(ExpenseCategory.id == category_id))
+        await self.db.commit()
+        return result.rowcount > 0
 
     async def list_categories(self) -> list[ExpenseCategory]:
         """Lista todas as categorias."""

@@ -284,18 +284,19 @@ Em outro terminal:
 ```powershell
 cd src\frontend
 npm install
-$env:VITE_API_URL="http://localhost:8000/api"; npm run dev -- --port 5173 --strictPort
+$env:VITE_API_URL="http://localhost:8000/api"; npm run dev
 ```
 
 Abra `http://localhost:5173`. No `npm run dev`, sem `VITE_API_URL`, o padrão já é
 `http://localhost:8000/api`. Definir a variável deixa claro para qual backend o frontend aponta.
 O `npm run build` falha sem ela.
 
-**Use sempre `--strictPort` (ver #11).** No Windows, se o `npm run dev` for encerrado sem Ctrl+C no
+**A porta é fixa (ver #11).** O `vite.config.ts` usa `port: 5173` e `strictPort: true`, então não é
+preciso passar `--port` nem `--strictPort`. O motivo: no Windows, se o `npm run dev` for encerrado sem Ctrl+C no
 próprio terminal (pelo Gerenciador de Tarefas ou fechando a ferramenta que o iniciou), o processo
-`node ...vite.js` continua escutando a porta 5173. Sem `--strictPort`, o Vite novo sobe em outra
+`node ...vite.js` continua escutando a porta 5173. Sem a porta fixa, o Vite novo subiria em outra
 porta sem avisar, e o navegador em `localhost:5173` continua falando com o Vite antigo, que pode
-estar apontando para outro backend. Com `--strictPort`, aparece o erro de porta em uso. Para
+estar apontando para outro backend. Com ela, aparece o erro de porta em uso. Para
 achar e encerrar o processo órfão:
 
 ```powershell
