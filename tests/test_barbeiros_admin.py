@@ -346,7 +346,7 @@ async def test_nao_agenda_com_barbeiro_desativado(what, agenda, sessionmaker, cl
     assert await count(sessionmaker, Appointment) == 0
     # O visitante recusado também não deixa usuário para trás.
     async with sessionmaker() as db:
-        guests = (await db.execute(select(User).where(User.email.like("guest_%")))).scalars().all()
+        guests = (await db.execute(select(User).where(User.email.like("%@trim.local")))).scalars().all()
     assert guests == []
 
 

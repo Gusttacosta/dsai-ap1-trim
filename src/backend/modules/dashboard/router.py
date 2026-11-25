@@ -16,17 +16,22 @@ from src.backend.modules.auth.dependencies import get_current_admin, get_current
 from src.backend.modules.auth.models import User
 from src.backend.modules.barbers.models import Barber
 from src.backend.modules.dashboard.schemas import BarberPerformanceResponse, DailyOverviewResponse, FinancialSummaryResponse
-from src.backend.modules.dashboard.service import DashboardService
+from src.backend.modules.dashboard.service import DashboardService, month_of, shop_today
 
 router = APIRouter()
 
 
 def get_month_boundaries() -> tuple[date, date]:
-    """Utilitário: Retorna o primeiro e último dia do mês corrente caso as datas não sejam passadas."""
-    from calendar import monthrange
-    today = date.today()
-    start_date = today.replace(day=1)
-    end_date = today.replace(day=monthrange(today.year, today.month)[1])
+    """Primeiro e último dia do mês corrente da barbearia, quando as datas não vêm (#67)."""
+    return month_of(shop_today())
+
+
+def period(start_date: date | None, end_date: date | None) -> tuple[date, date]:
+    s_date, e_date = get_month_boundaries()
+    start_date, end_date = start_date or s_date, end_date or e_date
+    if start_date > end_date:
+        # Antes, um período invertido devolvia zeros sem aviso (#67).
+        raise HTTPException(status_code=422, detail="A data inicial não pode ser depois da data final.")
     return start_date, end_date
 
 
@@ -38,9 +43,7 @@ async def get_financial_summary(
     admin: User = Depends(get_current_admin)
 ):
     """(Admin) Retorna Receita, Despesas, Comissões e Lucro Líquido do período."""
-    s_date, e_date = get_month_boundaries()
-    start_date = start_date or s_date
-    end_date = end_date or e_date
+    start_date, end_date = period(start_date, end_date)
 
     service = DashboardService(db)
     return await service.get_financial_summary(start_date, end_date)
@@ -53,7 +56,7 @@ async def get_daily_overview(
     admin: User = Depends(get_current_admin)
 ):
     """(Admin) Visão operacional de um dia (Ocupação, Ticket médio)."""
-    target = target_date or date.today()
+    target = target_date or shop_today()
     service = DashboardService(db)
     return await service.get_daily_overview(target)
 
@@ -65,10 +68,8 @@ async def get_barber_ranking(
     db: AsyncSession = Depends(get_db),
     admin: User = Depends(get_current_admin)
 ):
-    """(Admin) Lista barbeiros ordenados por faturamento gerado."""
-    s_date, e_date = get_month_boundaries()
-    start_date = start_date or s_date
-    end_date = end_date or e_date
+    """(Admin) Lista os barbeiros ativos ordenados por faturamento gerado."""
+    start_date, end_date = period(start_date, end_date)
 
     service = DashboardService(db)
     return await service.get_barber_ranking(start_date, end_date)
@@ -82,9 +83,7 @@ async def get_my_performance(
     barber_user: User = Depends(get_current_barber_or_admin)
 ):
     """(Barbeiro) Retorna apenas o desempenho do barbeiro logado."""
-    s_date, e_date = get_month_boundaries()
-    start_date = start_date or s_date
-    end_date = end_date or e_date
+    start_date, end_date = period(start_date, end_date)
 
     stmt = select(Barber.id).where(Barber.user_id == barber_user.id)
     barber_id = (await db.execute(stmt)).scalar_one_or_none()
