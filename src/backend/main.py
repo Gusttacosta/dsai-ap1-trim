@@ -46,10 +46,13 @@ async def lifespan(app: FastAPI):
         "%s backend iniciando (ambiente: %s, debug: %s)",
         settings.app_name, settings.app_env, settings.debug,
     )
-    logger.info("Verificando/criando tabelas no banco de dados...")
-    async with engine.begin() as conn:
-        await conn.run_sync(Base.metadata.create_all)
-    logger.info("Banco de dados pronto.")
+    if settings.is_development:
+        # Conveniência local. Fora do desenvolvimento, o esquema vem só das migrações do Alembic,
+        # aplicadas por scripts/migrate.py antes do uvicorn (#6).
+        logger.info("Verificando/criando tabelas no banco de dados (desenvolvimento)...")
+        async with engine.begin() as conn:
+            await conn.run_sync(Base.metadata.create_all)
+        logger.info("Banco de dados pronto.")
 
     yield
     # ── Shutdown ──

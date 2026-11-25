@@ -57,6 +57,14 @@ def run_migrations_offline() -> None:
 
 def run_migrations_online() -> None:
     """Run migrations in 'online' mode."""
+    # scripts/migrate.py (e os testes) podem passar a própria conexão (#6).
+    connection = config.attributes.get("connection")
+    if connection is not None:
+        context.configure(connection=connection, target_metadata=target_metadata)
+        with context.begin_transaction():
+            context.run_migrations()
+        return
+
     ini_section = config.get_section(config.config_ini_section, {})
     ini_section["sqlalchemy.url"] = settings.database_url_sync
     
