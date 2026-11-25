@@ -11,7 +11,14 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from src.backend.modules.gallery.models import GalleryTag, PortfolioImage
-from src.backend.modules.gallery.schemas import GalleryTagCreateRequest, PortfolioImageCreateRequest
+from src.backend.modules.auth.models import User
+from src.backend.modules.barbers.models import Barber
+from src.backend.modules.gallery.schemas import (
+    GalleryTagCreateRequest,
+    GalleryTagUpdateRequest,
+    PortfolioImageCreateRequest,
+)
+from src.backend.modules.notifications.models import Notification, NotificationType
 from src.backend.modules.services.models import Service
 
 
@@ -32,6 +39,24 @@ class GalleryService:
         await self.db.refresh(tag)
         return tag
 
+    async def rename_tag(self, tag_id: uuid.UUID, data: GalleryTagUpdateRequest) -> GalleryTag | None:
+        tag = await self.db.get(GalleryTag, tag_id)
+        if tag is None:
+            return None
+        stmt = select(GalleryTag.id).where(GalleryTag.name == data.name, GalleryTag.id != tag_id)
+        if (await self.db.execute(stmt)).first():
+            raise ValueError(f"A tag '{data.name}' já existe.")
+        tag.name = data.name
+        await self.db.commit()
+        await self.db.refresh(tag)
+        return tag
+
+    async def delete_tag(self, tag_id: uuid.UUID) -> bool:
+        """Apaga a tag. As fotos continuam, sem ela (a tabela de ligação tem ON DELETE CASCADE)."""
+        result = await self.db.execute(delete(GalleryTag).where(GalleryTag.id == tag_id))
+        await self.db.commit()
+        return result.rowcount > 0
+
     async def list_tags(self) -> list[GalleryTag]:
         stmt = select(GalleryTag).order_by(GalleryTag.name)
         result = await self.db.execute(stmt)
@@ -46,12 +71,14 @@ class GalleryService:
         if data.service_id is not None and await self.db.get(Service, data.service_id) is None:
             raise LookupError("Serviço não encontrado.")
 
-        # Busca as tags solicitadas
+        # Busca as tags solicitadas. Antes, uma tag desconhecida era ignorada sem aviso (#71).
         tags = []
         if data.tag_ids:
             stmt_tags = select(GalleryTag).where(GalleryTag.id.in_(data.tag_ids))
             result = await self.db.execute(stmt_tags)
             tags = list(result.scalars().all())
+            if len(tags) != len(set(data.tag_ids)):
+                raise LookupError("Uma ou mais tags não existem.")
 
         image = PortfolioImage(
             image_url=str(data.image_url),
@@ -71,7 +98,14 @@ class GalleryService:
 
     async def list_approved_images(self, barber_id: uuid.UUID | None = None, tag_id: uuid.UUID | None = None) -> list[PortfolioImage]:
         """Lista fotos públicas (is_approved=True) com filtros opcionais."""
-        stmt = select(PortfolioImage).where(PortfolioImage.is_approved == True).options(selectinload(PortfolioImage.tags))
+        # Fotos de barbeiro desativado (perfil ou conta) saem da galeria pública (#71).
+        stmt = (
+            select(PortfolioImage)
+            .join(Barber, PortfolioImage.barber_id == Barber.id)
+            .join(User, Barber.user_id == User.id)
+            .where(PortfolioImage.is_approved.is_(True), Barber.is_active.is_(True), User.is_active.is_(True))
+            .options(selectinload(PortfolioImage.tags))
+        )
         
         if barber_id:
             stmt = stmt.where(PortfolioImage.barber_id == barber_id)
@@ -103,6 +137,36 @@ class GalleryService:
         image.is_approved = True
         await self.db.commit()
         return image
+
+    async def unapprove_image(self, image_id: uuid.UUID) -> PortfolioImage | None:
+        """(Admin) Tira a foto da galeria pública; ela volta para a fila de moderação (#71)."""
+        image = await self.db.get(PortfolioImage, image_id)
+        if image is None:
+            return None
+        image.is_approved = False
+        await self.db.commit()
+        result = await self.db.execute(
+            select(PortfolioImage).where(PortfolioImage.id == image_id).options(selectinload(PortfolioImage.tags))
+        )
+        return result.scalar_one()
+
+    async def reject_image(self, image_id: uuid.UUID, reason: str) -> bool:
+        """(Admin) Recusa uma foto pendente: apaga a foto e avisa o barbeiro com o motivo (#71)."""
+        image = await self.db.get(PortfolioImage, image_id)
+        if image is None:
+            return False
+        if image.is_approved:
+            raise ValueError("A foto já foi aprovada. Para tirá-la da galeria, use a remoção da aprovação.")
+        user_id = (await self.db.execute(select(Barber.user_id).where(Barber.id == image.barber_id))).scalar_one()
+        self.db.add(Notification(
+            user_id=user_id,
+            title="Foto recusada na galeria",
+            message=f"A foto {image.image_url} foi recusada. Motivo: {reason}",
+            type=NotificationType.SYSTEM_ALERT,
+        ))
+        await self.db.delete(image)
+        await self.db.commit()
+        return True
 
     async def delete_image(
         self, image_id: uuid.UUID, requesting_barber_id: uuid.UUID | None = None, *, is_admin: bool = False

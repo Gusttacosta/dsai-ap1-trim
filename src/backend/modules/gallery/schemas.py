@@ -13,7 +13,21 @@ IMAGE_URL_MAX = 1000
 
 
 class GalleryTagCreateRequest(BaseModel):
-    name: str = Field(..., max_length=50)
+    model_config = ConfigDict(str_strip_whitespace=True)
+
+    # Nome vazio era aceito (#71).
+    name: str = Field(..., min_length=1, max_length=50)
+
+
+class GalleryTagUpdateRequest(GalleryTagCreateRequest):
+    """Renomear uma tag (#71)."""
+
+
+class PortfolioImageRejectRequest(BaseModel):
+    """Recusa de uma foto pendente: o motivo vai para o barbeiro como notificação (#71)."""
+    model_config = ConfigDict(str_strip_whitespace=True)
+
+    reason: str = Field(..., min_length=1, max_length=500)
 
 
 class GalleryTagResponse(BaseModel):
@@ -28,6 +42,8 @@ class PortfolioImageCreateRequest(BaseModel):
     service_id: uuid.UUID | None = None
     description: str | None = Field(None, max_length=500)
     tag_ids: list[uuid.UUID] = Field(default_factory=list)
+    # Só o admin escolhe o barbeiro da foto; o barbeiro só envia para o próprio portfólio (#71).
+    barber_id: uuid.UUID | None = None
 
     @field_validator("image_url")
     @classmethod

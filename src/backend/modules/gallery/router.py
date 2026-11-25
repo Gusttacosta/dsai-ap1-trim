@@ -17,12 +17,17 @@ from src.backend.modules.barbers.models import Barber
 from src.backend.modules.gallery.schemas import (
     GalleryTagCreateRequest,
     GalleryTagResponse,
+    GalleryTagUpdateRequest,
     PortfolioImageCreateRequest,
+    PortfolioImageRejectRequest,
     PortfolioImageResponse,
 )
 from src.backend.modules.gallery.service import GalleryService
 
 router = APIRouter()
+
+IMAGE_NOT_FOUND = "Imagem não encontrada."
+TAG_NOT_FOUND = "Tag não encontrada."
 
 # ── Endpoints Públicos ───────────────────────────────────
 
@@ -60,20 +65,64 @@ async def create_tag(
         raise HTTPException(status_code=400, detail=str(e))
 
 
+@router.put("/tags/{tag_id}", response_model=GalleryTagResponse)
+async def rename_tag(
+    tag_id: uuid.UUID,
+    data: GalleryTagUpdateRequest,
+    db: AsyncSession = Depends(get_db),
+    admin: User = Depends(get_current_admin)
+):
+    """(Admin) Renomeia uma tag."""
+    service = GalleryService(db)
+    try:
+        tag = await service.rename_tag(tag_id, data)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    if tag is None:
+        raise HTTPException(status_code=404, detail=TAG_NOT_FOUND)
+    return tag
+
+
+@router.delete("/tags/{tag_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_tag(
+    tag_id: uuid.UUID,
+    db: AsyncSession = Depends(get_db),
+    admin: User = Depends(get_current_admin)
+):
+    """(Admin) Apaga uma tag. As fotos continuam, sem ela."""
+    if not await GalleryService(db).delete_tag(tag_id):
+        raise HTTPException(status_code=404, detail=TAG_NOT_FOUND)
+
+
 @router.post("", response_model=PortfolioImageResponse, status_code=status.HTTP_201_CREATED)
 async def upload_image(
     data: PortfolioImageCreateRequest,
     db: AsyncSession = Depends(get_db),
     user: User = Depends(get_current_barber_or_admin)
 ):
-    """(Barbeiro/Admin) Cadastra nova foto. Se for admin, já entra aprovada."""
-    stmt = select(Barber.id).where(Barber.user_id == user.id)
-    barber_id = (await db.execute(stmt)).scalar_one_or_none()
-    
-    if not barber_id:
-        raise HTTPException(status_code=404, detail="Perfil de barbeiro não encontrado.")
+    """(Barbeiro/Admin) Cadastra nova foto. Se for admin, já entra aprovada.
 
-    auto_approve = user.role == UserRole.ADMIN
+    O admin pode enviar em nome de qualquer barbeiro ativo (`barber_id`), mesmo sem perfil próprio;
+    o barbeiro só envia para o próprio portfólio (#71)."""
+    is_admin = user.role == UserRole.ADMIN
+    stmt = select(Barber.id).where(Barber.user_id == user.id)
+    own_barber_id = (await db.execute(stmt)).scalar_one_or_none()
+
+    if is_admin and data.barber_id is not None:
+        target = await db.get(Barber, data.barber_id)
+        if target is None or not target.is_active:
+            raise HTTPException(status_code=404, detail="Barbeiro não encontrado ou inativo.")
+        barber_id = target.id
+    elif not own_barber_id:
+        if is_admin:
+            raise HTTPException(status_code=400, detail="Informe o barbeiro da foto (barber_id).")
+        raise HTTPException(status_code=404, detail="Perfil de barbeiro não encontrado.")
+    elif data.barber_id is not None and data.barber_id != own_barber_id:
+        raise HTTPException(status_code=403, detail="O barbeiro só envia fotos para o próprio portfólio.")
+    else:
+        barber_id = own_barber_id
+
+    auto_approve = is_admin
     service = GalleryService(db)
     try:
         return await service.upload_image(barber_id, data, auto_approve)
@@ -103,6 +152,35 @@ async def approve_image(
         return await service.approve_image(image_id)
     except ValueError as e:
         raise HTTPException(status_code=404, detail=str(e))
+
+
+@router.put("/{image_id}/unapprove", response_model=PortfolioImageResponse)
+async def unapprove_image(
+    image_id: uuid.UUID,
+    db: AsyncSession = Depends(get_db),
+    admin: User = Depends(get_current_admin)
+):
+    """(Admin) Tira uma foto da galeria pública; ela volta para a moderação."""
+    image = await GalleryService(db).unapprove_image(image_id)
+    if image is None:
+        raise HTTPException(status_code=404, detail=IMAGE_NOT_FOUND)
+    return image
+
+
+@router.put("/{image_id}/reject", status_code=status.HTTP_204_NO_CONTENT)
+async def reject_image(
+    image_id: uuid.UUID,
+    data: PortfolioImageRejectRequest,
+    db: AsyncSession = Depends(get_db),
+    admin: User = Depends(get_current_admin)
+):
+    """(Admin) Recusa uma foto pendente com um motivo, que chega ao barbeiro como notificação."""
+    try:
+        found = await GalleryService(db).reject_image(image_id, data.reason)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    if not found:
+        raise HTTPException(status_code=404, detail=IMAGE_NOT_FOUND)
 
 
 @router.delete("/{image_id}", status_code=status.HTTP_204_NO_CONTENT)
