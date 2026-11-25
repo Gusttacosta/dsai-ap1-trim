@@ -7,6 +7,7 @@ resgate e operações do admin.
 """
 
 import uuid
+from decimal import ROUND_FLOOR, Decimal
 
 from sqlalchemy import func, select
 from sqlalchemy.exc import IntegrityError
@@ -16,10 +17,44 @@ from sqlalchemy.orm import selectinload
 from src.backend.modules.auth.models import User
 from src.backend.modules.loyalty.models import LoyaltyWallet, Reward, RewardRedemption
 from src.backend.modules.loyalty.schemas import RewardCreateRequest, RewardUpdateRequest
+from src.backend.modules.notifications.models import NotificationType
+from src.backend.modules.notifications.service import notify
 
 
 class NotFound(LookupError):
     """Usuário ou prêmio inexistente (vira 404 na rota)."""
+
+
+def points_for(amount) -> int:
+    """Regra de pontuação (#13): 1 ponto por real pago, sem centavos."""
+    return int(Decimal(str(amount or 0)).to_integral_value(rounding=ROUND_FLOOR))
+
+
+async def award_points(db: AsyncSession, user_id: uuid.UUID | None, amount, reason: str) -> int:
+    """Credita os pontos de um pagamento, sem commit: entram junto com a cobrança (#13).
+
+    Pagamento de valor zero (crédito do Trim Club), venda sem cliente e conta desativada (inclusive
+    o usuário Visitante, #21) não geram pontos. Devolve quantos pontos entraram."""
+    points = points_for(amount)
+    if user_id is None or points <= 0:
+        return 0
+    user = await db.get(User, user_id)
+    if user is None or not user.is_active:
+        return 0
+
+    stmt = select(LoyaltyWallet).where(LoyaltyWallet.user_id == user_id).with_for_update()
+    wallet = (await db.execute(stmt)).scalar_one_or_none()
+    if wallet is None:
+        wallet = LoyaltyWallet(user_id=user_id, balance=0, lifetime_points=0)
+        db.add(wallet)
+    wallet.balance += points
+    wallet.lifetime_points += points
+    await notify(
+        db, user_id, "Você ganhou pontos",
+        f"+{points} pts por {reason}. Saldo: {wallet.balance} pts.", NotificationType.LOYALTY_UPDATE,
+    )
+    await db.flush()
+    return points
 
 
 class LoyaltyService:
@@ -72,6 +107,10 @@ class LoyaltyService:
         wallet = await self._locked_wallet(user_id)
         wallet.balance += points
         wallet.lifetime_points += points
+        await notify(
+            self.db, user_id, "Você ganhou pontos",
+            f"+{points} pts da barbearia. Saldo: {wallet.balance} pts.", NotificationType.LOYALTY_UPDATE,
+        )
 
         await self.db.commit()
         await self.db.refresh(wallet)
@@ -188,6 +227,11 @@ class LoyaltyService:
         )
 
         self.db.add(redemption)
+        await notify(
+            self.db, user_id, "Resgate confirmado",
+            f"Você trocou {reward.points_cost} pts por {reward.name}. Saldo: {wallet.balance} pts.",
+            NotificationType.LOYALTY_UPDATE,
+        )
         await self.db.commit()
 
         # Recarrega para popular as relações do schema de resposta
