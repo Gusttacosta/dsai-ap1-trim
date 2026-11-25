@@ -7,7 +7,7 @@ Modelos SQLAlchemy para carteira de pontos, recompensas e resgates.
 import uuid
 from datetime import datetime
 
-from sqlalchemy import Boolean, DateTime, ForeignKey, Integer, String, func
+from sqlalchemy import Boolean, CheckConstraint, DateTime, ForeignKey, Integer, String, func
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -17,6 +17,8 @@ from src.backend.database import Base
 class LoyaltyWallet(Base):
     """Carteira de pontos do cliente."""
     __tablename__ = "loyalty_wallets"
+    # Última linha de defesa contra saldo negativo em resgates simultâneos (#73).
+    __table_args__ = (CheckConstraint("balance >= 0", name="ck_loyalty_wallets_balance_non_negative"),)
 
     id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True),
@@ -113,3 +115,8 @@ class RewardRedemption(Base):
 
     reward: Mapped["Reward"] = relationship("Reward")
     wallet: Mapped["LoyaltyWallet"] = relationship("LoyaltyWallet")
+
+    @property
+    def user_id(self) -> uuid.UUID:
+        """Cliente do resgate, para o admin não ver só o wallet_id (#73). Exige `wallet` carregada."""
+        return self.wallet.user_id
