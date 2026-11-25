@@ -13,13 +13,14 @@ from src.backend.database import get_db
 from src.backend.modules.auth.dependencies import get_current_admin, get_current_user
 from src.backend.modules.auth.models import User
 from src.backend.modules.loyalty.schemas import (
+    LoyaltyWalletAdminResponse,
     LoyaltyWalletResponse,
     RewardCreateRequest,
     RewardRedemptionResponse,
     RewardResponse,
     RewardUpdateRequest,
 )
-from src.backend.modules.loyalty.service import LoyaltyService
+from src.backend.modules.loyalty.service import LoyaltyService, NotFound
 
 router = APIRouter()
 
@@ -66,7 +67,10 @@ async def create_reward(
 ):
     """(Admin) Cria um novo prêmio no catálogo."""
     service = LoyaltyService(db)
-    return await service.create_reward(data)
+    try:
+        return await service.create_reward(data)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
 
 
 @router.put("/rewards/{reward_id}", response_model=RewardResponse)
@@ -78,7 +82,10 @@ async def update_reward(
 ):
     """(Admin) Edita dados de um prêmio existente."""
     service = LoyaltyService(db)
-    reward = await service.update_reward(reward_id, data)
+    try:
+        reward = await service.update_reward(reward_id, data)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
     if not reward:
         raise HTTPException(status_code=404, detail="Prêmio não encontrado.")
     return reward
@@ -95,8 +102,37 @@ async def add_points_manually(
     service = LoyaltyService(db)
     try:
         return await service.add_points(target_user_id, points)
+    except NotFound as e:
+        raise HTTPException(status_code=404, detail=str(e))
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
+
+
+@router.post("/wallet/{target_user_id}/remove", response_model=LoyaltyWalletResponse)
+async def remove_points_manually(
+    target_user_id: uuid.UUID,
+    points: int,
+    db: AsyncSession = Depends(get_db),
+    admin: User = Depends(get_current_admin)
+):
+    """(Admin) Retira pontos (estorno ou correção). O total acumulado não muda."""
+    service = LoyaltyService(db)
+    try:
+        return await service.remove_points(target_user_id, points)
+    except NotFound as e:
+        raise HTTPException(status_code=404, detail=str(e))
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+
+@router.get("/wallets", response_model=list[LoyaltyWalletAdminResponse])
+async def list_wallets(
+    db: AsyncSession = Depends(get_db),
+    admin: User = Depends(get_current_admin)
+):
+    """(Admin) Lista as carteiras com o cliente, do maior saldo para o menor."""
+    service = LoyaltyService(db)
+    return await service.list_wallets()
 
 
 @router.get("/redemptions", response_model=list[RewardRedemptionResponse])

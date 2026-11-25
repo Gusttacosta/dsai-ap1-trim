@@ -6,7 +6,9 @@ Endpoints do PDV (Ponto de Venda) e gestão de caixa e comissões.
 
 import uuid
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from datetime import date
+
+from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 
@@ -17,10 +19,11 @@ from src.backend.modules.finance.schemas import (
     AppointmentCheckoutRequest,
     CommissionResponse,
     PayCommissionsRequest,
+    PendingCommissionsSummary,
     ProductCheckoutRequest,
     TransactionResponse,
 )
-from src.backend.modules.finance.service import FinanceService
+from src.backend.modules.finance.service import FinanceService, NotFound
 
 router = APIRouter()
 
@@ -37,6 +40,8 @@ async def checkout_appointment(
     service = FinanceService(db)
     try:
         return await service.checkout_appointment(appointment_id, data)
+    except NotFound as e:
+        raise HTTPException(status_code=404, detail=str(e))
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
 
@@ -51,21 +56,37 @@ async def checkout_product(
     service = FinanceService(db)
     try:
         return await service.checkout_product(data, admin_user_id=admin.id)
+    except NotFound as e:
+        raise HTTPException(status_code=404, detail=str(e))
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
 
 
 @router.get("/transactions", response_model=list[TransactionResponse])
 async def list_transactions(
+    start_date: date | None = Query(None, description="A partir deste dia (fuso da barbearia)"),
+    end_date: date | None = Query(None, description="Até este dia, inclusive"),
     db: AsyncSession = Depends(get_db),
     admin: User = Depends(get_current_admin)
 ):
-    """(Admin) Extrato de caixa."""
+    """(Admin) Extrato de caixa, com filtro opcional de datas (#59)."""
+    if start_date and end_date and start_date > end_date:
+        raise HTTPException(status_code=422, detail="A data inicial não pode ser depois da data final.")
     service = FinanceService(db)
-    return await service.list_transactions()
+    return await service.list_transactions(start_date, end_date)
 
 
 # ── Comissões (Admin e Barbeiros) ────────────────────────
+
+@router.get("/commissions", response_model=list[PendingCommissionsSummary])
+async def pending_commissions(
+    db: AsyncSession = Depends(get_db),
+    admin: User = Depends(get_current_admin)
+):
+    """(Admin) Comissões pendentes agrupadas por barbeiro (#59)."""
+    service = FinanceService(db)
+    return await service.pending_commissions_by_barber()
+
 
 @router.get("/commissions/me", response_model=list[CommissionResponse])
 async def get_my_commissions(
