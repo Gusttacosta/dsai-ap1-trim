@@ -6,7 +6,7 @@ Endpoints de notificações para os usuários.
 
 import uuid
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.backend.database import get_db
@@ -24,12 +24,15 @@ router = APIRouter()
 
 @router.get("", response_model=list[NotificationResponse])
 async def list_my_notifications(
+    limit: int = Query(50, ge=1, le=200),
+    offset: int = Query(0, ge=0),
+    unread_only: bool = False,
     db: AsyncSession = Depends(get_db),
     user: User = Depends(get_current_user)
 ):
-    """(Geral) Lista todas as notificações recebidas pelo usuário logado."""
+    """(Geral) Lista as notificações do usuário logado, das mais novas para as mais antigas (#75)."""
     service = NotificationService(db)
-    return await service.get_my_notifications(user.id)
+    return await service.get_my_notifications(user.id, limit=limit, offset=offset, unread_only=unread_only)
 
 
 @router.get("/unread-count", response_model=UnreadCountResponse)
@@ -69,13 +72,24 @@ async def mark_as_read(
     return notif
 
 
+@router.delete("/{notification_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_notification(
+    notification_id: uuid.UUID,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user)
+):
+    """(Geral) Apaga uma notificação do próprio usuário."""
+    if not await NotificationService(db).delete(notification_id, user.id):
+        raise HTTPException(status_code=404, detail="Notificação não encontrada.")
+
+
 @router.post("/broadcast", status_code=status.HTTP_201_CREATED)
 async def broadcast_alert(
     data: NotificationBroadcastRequest,
     db: AsyncSession = Depends(get_db),
     admin: User = Depends(get_current_admin)
 ):
-    """(Admin) Dispara um alerta geral para todos os usuários cadastrados."""
+    """(Admin) Dispara um alerta geral para as contas ativas do público escolhido."""
     service = NotificationService(db)
     affected = await service.broadcast(data)
     return {"detail": f"Mensagem enviada para {affected} usuários."}
