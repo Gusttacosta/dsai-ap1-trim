@@ -172,7 +172,7 @@ jobs:
             exit 1
           fi
 
-  # Alertas de dependências (#41): npm audit falha em high (#8), pip-audit só em crítica.
+  # Alertas de dependências (#41): npm audit (#8) e pip-audit (#77) falham a partir de high.
   dependencias:
     name: Dependências (npm audit e pip-audit)
     runs-on: ubuntu-latest
@@ -185,7 +185,7 @@ jobs:
         with:
           node-version: "22"
 
-      # O frontend falha a partir de high (#8). O pip-audit segue só em críticas.
+      # Os dois lados falham a partir de high: o frontend desde o #8, o backend desde o #77.
       - name: npm audit (frontend, falha em high e críticas)
         working-directory: src/frontend
         run: npm audit --audit-level=high
@@ -199,7 +199,7 @@ jobs:
         run: pip install "pip-audit==${PIP_AUDIT_VERSION}"
 
       # O pip-audit não informa a severidade: ela vem da base de advisories do GitHub.
-      - name: pip-audit (backend, falha só em críticas)
+      - name: pip-audit (backend, falha em high e críticas)
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
@@ -211,22 +211,22 @@ jobs:
           jq -r '.dependencies[] | .name as $nome | .version as $versao | (.vulns // [])[]
             | [$nome, $versao, .id, ([.id] + (.aliases // []) | map(select(startswith("GHSA-"))) | first // "-")]
             | @tsv' pip-audit.json | sort -u > alertas.tsv
-          criticos=0
+          graves=0
           while IFS=$'\t' read -r nome versao id ghsa; do
             severidade=desconhecida
             if [ "$ghsa" != "-" ]; then
               severidade=$(gh api "/advisories/${ghsa}" --jq .severity 2>/dev/null || echo desconhecida)
             fi
             echo "${severidade}	${nome} ${versao}	${id}	${ghsa}"
-            if [ "$severidade" = "critical" ]; then
-              criticos=$((criticos + 1))
-              echo "::error::Vulnerabilidade crítica: ${nome} ${versao} (${id} / ${ghsa})"
+            if [ "$severidade" = "critical" ] || [ "$severidade" = "high" ]; then
+              graves=$((graves + 1))
+              echo "::error::Vulnerabilidade ${severidade}: ${nome} ${versao} (${id} / ${ghsa})"
             elif [ "$severidade" = "desconhecida" ]; then
               echo "::warning::Severidade desconhecida: ${nome} ${versao} (${id})"
             fi
           done < alertas.tsv
-          echo "$(wc -l < alertas.tsv) alertas no pip-audit, ${criticos} críticos."
-          [ "$criticos" -eq 0 ]
+          echo "$(wc -l < alertas.tsv) alertas no pip-audit, ${graves} high ou críticos."
+          [ "$graves" -eq 0 ]
 
   # Duplicação em src/, só como relatório: este job não falha por duplicação (#41).
   duplicacao:
