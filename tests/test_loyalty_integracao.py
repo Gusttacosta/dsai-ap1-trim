@@ -194,3 +194,129 @@ async def test_invalid_update_gets_422(client, admin, body):
     response = await client.put(f"{URL}/rewards/{reward['id']}", json=body, headers=auth(admin))
     assert response.status_code == 422
     assert await catalog(client) == ["Pomada"]
+
+
+# ── resgate ─────────────────────────────────────────────
+
+
+async def test_redeem_debits_the_balance_and_keeps_lifetime(client, admin, member, sessionmaker):
+    reward = await create_reward(client, admin, "Pomada", 120)
+    await give(client, admin, member, 200)
+
+    response = await redeem(client, member, reward["id"])
+    assert response.status_code == 201, response.text
+    body = response.json()
+    assert body["reward_id"] == reward["id"]
+    assert body["points_spent"] == 120
+    assert body["reward"]["name"] == "Pomada"
+    assert body["redeemed_at"]
+    mine = await wallet(client, member)
+    assert body["wallet_id"] == mine["id"]
+    assert (mine["balance"], mine["lifetime_points"]) == (80, 200)
+    assert await count(sessionmaker, RewardRedemption) == 1
+
+
+async def test_spending_the_exact_balance_leaves_zero(client, admin, member):
+    reward = await create_reward(client, admin, "Pomada", 120)
+    await give(client, admin, member, 120)
+    assert (await redeem(client, member, reward["id"])).status_code == 201
+    assert (await wallet(client, member))["balance"] == 0
+
+
+async def test_insufficient_balance_changes_nothing(client, admin, member, sessionmaker):
+    reward = await create_reward(client, admin, "Corte grátis", 300)
+    await give(client, admin, member, 299)
+    response = await redeem(client, member, reward["id"])
+    assert response.status_code == 400
+    assert response.json()["detail"] == "Saldo insuficiente. Você possui 299 pts e o prêmio custa 300 pts."
+    assert (await wallet(client, member))["balance"] == 299
+    assert await count(sessionmaker, RewardRedemption) == 0
+
+
+async def test_new_member_without_points_cannot_redeem(client, admin, member):
+    reward = await create_reward(client, admin, "Pomada", 120)
+    response = await redeem(client, member, reward["id"])
+    assert response.status_code == 400
+    assert response.json()["detail"] == "Saldo insuficiente. Você possui 0 pts e o prêmio custa 120 pts."
+
+
+async def test_unknown_or_inactive_reward_gets_400(client, admin, member, sessionmaker):
+    reward = await create_reward(client, admin, "Pomada", 10)
+    await client.put(f"{URL}/rewards/{reward['id']}", json={"is_active": False}, headers=auth(admin))
+    await give(client, admin, member, 100)
+    for reward_id in (reward["id"], uuid.uuid4()):
+        response = await redeem(client, member, reward_id)
+        assert response.status_code == 400
+        assert response.json()["detail"] == NO_REWARD
+    assert (await wallet(client, member))["balance"] == 100
+    assert await count(sessionmaker, RewardRedemption) == 0
+
+
+async def test_redemption_keeps_the_cost_of_the_moment(client, admin, member):
+    reward = await create_reward(client, admin, "Pomada", 120)
+    await give(client, admin, member, 500)
+    first = (await redeem(client, member, reward["id"])).json()
+    await client.put(f"{URL}/rewards/{reward['id']}", json={"points_cost": 200}, headers=auth(admin))
+    second = (await redeem(client, member, reward["id"])).json()
+    assert (first["points_spent"], second["points_spent"]) == (120, 200)
+    assert (await wallet(client, member))["balance"] == 180
+
+    history = (await client.get(f"{URL}/redemptions", headers=auth(admin))).json()
+    assert [r["points_spent"] for r in history] == [200, 120]
+
+
+# ── resgates (admin) ────────────────────────────────────
+
+
+async def test_admin_sees_every_redemption_newest_first(client, admin, member, sessionmaker):
+    other = await add_user(sessionmaker, "outra@teste.com")
+    pomade = await create_reward(client, admin, "Pomada", 50)
+    cut = await create_reward(client, admin, "Corte grátis", 100)
+    await give(client, admin, member, 100)
+    await give(client, admin, other, 100)
+    first = (await redeem(client, member, pomade["id"])).json()
+    second = (await redeem(client, other, cut["id"])).json()
+
+    response = await client.get(f"{URL}/redemptions", headers=auth(admin))
+    assert response.status_code == 200
+    body = response.json()
+    assert [r["id"] for r in body] == [second["id"], first["id"]]
+    assert [r["reward"]["name"] for r in body] == ["Corte grátis", "Pomada"]
+
+
+async def test_no_redemptions(client, admin):
+    response = await client.get(f"{URL}/redemptions", headers=auth(admin))
+    assert response.status_code == 200
+    assert response.json() == []
+
+
+# ── permissões ──────────────────────────────────────────
+
+
+async def test_wallet_and_redeem_need_a_token(client, admin, sessionmaker):
+    reward = await create_reward(client, admin, "Pomada", 10)
+    assert (await client.get(f"{URL}/me")).status_code == 403
+    assert (await client.post(f"{URL}/redeem/{reward['id']}")).status_code == 403
+    assert await count(sessionmaker, LoyaltyWallet) == 0
+    assert await count(sessionmaker, RewardRedemption) == 0
+
+
+@pytest.mark.parametrize("role", [None, UserRole.CLIENT, UserRole.BARBER])
+async def test_admin_routes_are_forbidden_to_others(client, admin, member, sessionmaker, role):
+    reward = await create_reward(client, admin, "Pomada", 120)
+    headers = auth(await add_user(sessionmaker, "outro@teste.com", role)) if role else {}
+    responses = [
+        await client.post(f"{URL}/rewards", json={"name": "Novo", "points_cost": 1}, headers=headers),
+        await client.put(f"{URL}/rewards/{reward['id']}", json={"points_cost": 1}, headers=headers),
+        await client.post(f"{URL}/wallet/{member.id}/add", params={"points": 1000}, headers=headers),
+        await client.get(f"{URL}/redemptions", headers=headers),
+    ]
+    assert [r.status_code for r in responses] == [403] * 4
+    assert await catalog(client) == ["Pomada"]
+    assert (await client.get(f"{URL}/rewards")).json()[0]["points_cost"] == 120
+    assert await wallet_in_db(sessionmaker, member) is None
+
+
+async def test_catalog_is_public(client, admin):
+    await create_reward(client, admin, "Pomada", 120)
+    assert await catalog(client) == ["Pomada"]
