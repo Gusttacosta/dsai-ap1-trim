@@ -12,6 +12,7 @@ não importava a aplicação.
 import uuid
 from datetime import date, datetime, timedelta, timezone
 from decimal import Decimal
+from zoneinfo import ZoneInfo
 
 import pytest
 import pytest_asyncio
@@ -28,6 +29,8 @@ pytestmark = [pytest.mark.asyncio, needs_db]
 
 URL = "/api/reports"
 NOV = {"start_date": "2026-11-01", "end_date": "2026-11-30"}
+OVERVIEW_FIELDS = ("total_appointments", "completed_appointments", "no_show_appointments",
+                   "cancelled_appointments", "ticket_medio")
 ZERO = {"total_revenue": "0", "total_commissions": "0", "total_expenses": "0", "net_profit": "0"}
 
 
@@ -205,7 +208,9 @@ async def test_overview_ticket_is_rounded_to_cents(client, admin, sessionmaker):
 
 
 async def test_overview_without_data_is_zero(client, admin):
-    assert await overview(client, admin, target_date="2026-11-10") == {
+    # Só os campos de hoje: o PR #89 (#67) acrescenta o faturamento e a ocupação à resposta.
+    body = await overview(client, admin, target_date="2026-11-10")
+    assert {k: body[k] for k in OVERVIEW_FIELDS} == {
         "total_appointments": 0, "completed_appointments": 0, "no_show_appointments": 0,
         "cancelled_appointments": 0, "ticket_medio": "0.00",
     }
@@ -213,7 +218,9 @@ async def test_overview_without_data_is_zero(client, admin):
 
 async def test_overview_defaults_to_today(client, admin, customer, sessionmaker):
     barber = await add_barber(sessionmaker, "barbeiro@teste.com")
-    await add_appointment(sessionmaker, customer.id, barber.id, noon(date.today()), S.CONFIRMED)
+    # Um atendimento no dia do servidor e no da barbearia (o PR #89 usa o fuso da barbearia).
+    for today in {date.today(), datetime.now(ZoneInfo("America/Sao_Paulo")).date()}:
+        await add_appointment(sessionmaker, customer.id, barber.id, noon(today), S.CONFIRMED)
     await add_appointment(sessionmaker, customer.id, barber.id, noon(date.today() - timedelta(days=3)))
     body = await overview(client, admin)
     assert (body["total_appointments"], body["completed_appointments"]) == (1, 0)
