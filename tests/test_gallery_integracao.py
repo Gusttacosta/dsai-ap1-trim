@@ -181,3 +181,153 @@ async def test_invalid_upload_gets_422(client, ana, sessionmaker, body):
     response = await client.post(URL, json=body, headers=auth(ana[1]))
     assert response.status_code == 422
     assert await count(sessionmaker, PortfolioImage) == 0
+
+
+# ── galeria pública ─────────────────────────────────────
+
+
+@pytest_asyncio.fixture
+async def portfolio(client, admin, ana, bruno):
+    """Três fotos aprovadas (Ana com Degradê, Ana sem tag, Bruno com Degradê) e uma pendente."""
+    fade = await add_tag(client, admin, "Degradê")
+    ana_fade = await upload(client, ana[1], "https://x.com/ana-1.jpg", tag_ids=[fade["id"]])
+    ana_plain = await upload(client, ana[1], "https://x.com/ana-2.jpg")
+    bruno_fade = await upload(client, bruno[1], "https://x.com/bruno-1.jpg", tag_ids=[fade["id"]])
+    pending = await upload(client, ana[1], "https://x.com/ana-3.jpg", tag_ids=[fade["id"]])
+    for image in (ana_fade, ana_plain, bruno_fade):
+        assert (await approve(client, admin, image["id"])).status_code == 200
+    return {"fade": fade, "ana_fade": ana_fade["id"], "ana_plain": ana_plain["id"],
+            "bruno_fade": bruno_fade["id"], "pending": pending["id"]}
+
+
+async def test_public_gallery_shows_approved_newest_first(client, portfolio):
+    assert await public(client) == [portfolio["bruno_fade"], portfolio["ana_plain"], portfolio["ana_fade"]]
+    body = (await client.get(URL)).json()
+    assert [t["name"] for t in body[0]["tags"]] == ["Degradê"]
+    assert all(i["is_approved"] for i in body)
+
+
+async def test_public_gallery_filters(client, portfolio, ana, bruno):
+    p = portfolio
+    assert await public(client, barber_id=str(ana[0].id)) == [p["ana_plain"], p["ana_fade"]]
+    assert await public(client, barber_id=str(bruno[0].id)) == [p["bruno_fade"]]
+    assert await public(client, tag_id=p["fade"]["id"]) == [p["bruno_fade"], p["ana_fade"]]
+    assert await public(client, barber_id=str(ana[0].id), tag_id=p["fade"]["id"]) == [p["ana_fade"]]
+    assert await public(client, barber_id=str(uuid.uuid4())) == []
+
+
+async def test_empty_public_gallery(client, sessionmaker):
+    assert await public(client) == []
+
+
+# ── pendentes e aprovação ───────────────────────────────
+
+
+async def test_pending_lists_only_unapproved_newest_first(client, admin, ana, bruno):
+    first = await upload(client, ana[1], "https://x.com/1.jpg")
+    approved = await upload(client, ana[1], "https://x.com/2.jpg")
+    last = await upload(client, bruno[1], "https://x.com/3.jpg")
+    await approve(client, admin, approved["id"])
+
+    response = await client.get(f"{URL}/pending", headers=auth(admin))
+    assert response.status_code == 200
+    assert [i["id"] for i in response.json()] == [last["id"], first["id"]]
+    assert not any(i["is_approved"] for i in response.json())
+
+
+async def test_approve_moves_the_photo_to_the_public_gallery(client, admin, ana, sessionmaker):
+    image = await upload(client, ana[1])
+    response = await approve(client, admin, image["id"])
+    assert response.status_code == 200, response.text
+    assert response.json()["is_approved"] is True
+    assert response.json()["id"] == image["id"]
+    assert (await image_in_db(sessionmaker, image["id"])).is_approved is True
+    assert await public(client) == [image["id"]]
+    assert (await client.get(f"{URL}/pending", headers=auth(admin))).json() == []
+
+    again = await approve(client, admin, image["id"])
+    assert again.status_code == 200
+    assert again.json()["is_approved"] is True
+
+
+async def test_approve_unknown_photo_gets_404(client, admin):
+    response = await approve(client, admin, uuid.uuid4())
+    assert response.status_code == 404
+    assert response.json()["detail"] == NOT_FOUND
+
+
+# ── exclusão ────────────────────────────────────────────
+
+
+async def test_barber_deletes_own_photo_and_its_tag_links(client, admin, ana, sessionmaker):
+    fade = await add_tag(client, admin, "Degradê")
+    image = await upload(client, ana[1], tag_ids=[fade["id"]])
+    await approve(client, admin, image["id"])
+
+    response = await client.delete(f"{URL}/{image['id']}", headers=auth(ana[1]))
+    assert response.status_code == 204
+    assert await image_in_db(sessionmaker, image["id"]) is None
+    assert await public(client) == []
+    assert await tag_links(sessionmaker) == 0
+    assert await count(sessionmaker, GalleryTag) == 1
+
+
+async def test_barber_cannot_delete_another_barbers_photo(client, ana, bruno, sessionmaker):
+    image = await upload(client, ana[1])
+    response = await client.delete(f"{URL}/{image['id']}", headers=auth(bruno[1]))
+    assert response.status_code == 403
+    assert response.json()["detail"] == NOT_YOURS
+    assert await image_in_db(sessionmaker, image["id"]) is not None
+
+
+async def test_admin_deletes_any_photo(client, admin, ana, sessionmaker):
+    image = await upload(client, ana[1])
+    assert (await client.delete(f"{URL}/{image['id']}", headers=auth(admin))).status_code == 204
+    assert await count(sessionmaker, PortfolioImage) == 0
+
+
+async def test_delete_unknown_photo_gets_404(client, admin, ana):
+    for user in (admin, ana[1]):
+        response = await client.delete(f"{URL}/{uuid.uuid4()}", headers=auth(user))
+        assert response.status_code == 404
+        assert response.json()["detail"] == NOT_FOUND
+
+
+# ── permissões ──────────────────────────────────────────
+
+
+@pytest.mark.parametrize("role", [None, UserRole.CLIENT])
+async def test_moderation_is_forbidden_to_visitors_and_clients(client, admin, ana, sessionmaker, role):
+    image = await upload(client, ana[1])
+    headers = auth(await add_user(sessionmaker, "outro@teste.com", role)) if role else {}
+    responses = [
+        await client.post(f"{URL}/tags", json={"name": "Nova"}, headers=headers),
+        await client.post(URL, json={"image_url": "https://x.com/b.jpg"}, headers=headers),
+        await client.get(f"{URL}/pending", headers=headers),
+        await client.put(f"{URL}/{image['id']}/approve", headers=headers),
+        await client.delete(f"{URL}/{image['id']}", headers=headers),
+    ]
+    assert [r.status_code for r in responses] == [403] * 5
+    saved = await image_in_db(sessionmaker, image["id"])
+    assert saved is not None and saved.is_approved is False
+    assert (await count(sessionmaker, PortfolioImage), await count(sessionmaker, GalleryTag)) == (1, 0)
+
+
+async def test_admin_only_routes_are_forbidden_to_barbers(client, ana, sessionmaker):
+    image = await upload(client, ana[1])
+    responses = [
+        await client.post(f"{URL}/tags", json={"name": "Nova"}, headers=auth(ana[1])),
+        await client.get(f"{URL}/pending", headers=auth(ana[1])),
+        await client.put(f"{URL}/{image['id']}/approve", headers=auth(ana[1])),
+    ]
+    assert [r.status_code for r in responses] == [403] * 3
+    assert (await image_in_db(sessionmaker, image["id"])).is_approved is False
+    assert await count(sessionmaker, GalleryTag) == 0
+
+
+async def test_gallery_and_tags_are_public(client, admin, ana):
+    await add_tag(client, admin, "Barba")
+    image = await upload(client, ana[1])
+    await approve(client, admin, image["id"])
+    assert (await client.get(f"{URL}/tags")).status_code == 200
+    assert await public(client) == [image["id"]]
