@@ -9,8 +9,9 @@ aplicação.
 """
 
 import uuid
-from datetime import date, timedelta
+from datetime import date, datetime, timedelta
 from decimal import Decimal
+from zoneinfo import ZoneInfo
 
 import pytest
 import pytest_asyncio
@@ -252,15 +253,17 @@ async def test_deactivate_unknown_plan_gets_404(client, admin):
 
 async def test_subscribe_starts_a_30_day_cycle(client, admin, member, sessionmaker):
     plan = await create_plan(client, admin, "Plus", "99.00", included_cuts=4)
-    today = date.today()
+    # O dia do servidor ou o da barbearia: o PR #88 (#64) passa a usar o fuso da barbearia.
+    days = {date.today(), datetime.now(ZoneInfo("America/Sao_Paulo")).date()}
     response = await subscribe(client, member, plan["id"])
     assert response.status_code == 201, response.text
     body = response.json()
     assert body["user_id"] == str(member.id)
     assert body["plan_id"] == plan["id"]
     assert body["status"] == "active"
-    assert date.fromisoformat(body["start_date"]) == today
-    assert date.fromisoformat(body["end_date"]) == today + timedelta(days=30)
+    start = date.fromisoformat(body["start_date"])
+    assert start in days
+    assert date.fromisoformat(body["end_date"]) == start + timedelta(days=30)
     assert body["plan"]["name"] == "Plus"
     assert body["plan"]["included_cuts"] == 4
     assert body["created_at"] and body["updated_at"]
