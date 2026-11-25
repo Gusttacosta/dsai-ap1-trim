@@ -18,7 +18,7 @@ import pytest_asyncio
 
 from src.backend.modules.appointments.models import Appointment
 from src.backend.modules.appointments.models import AppointmentStatus as S
-from src.backend.modules.auth.models import UserRole
+from src.backend.modules.auth.models import User, UserRole
 from src.backend.modules.expenses.models import Expense
 from src.backend.modules.finance.models import BarberCommission, PaymentMethod, Transaction, TransactionType
 from tests.agenda_fixtures import needs_db
@@ -97,6 +97,11 @@ async def overview(client, admin, **params):
     return response.json()
 
 
+async def user_of(maker, barber):
+    async with maker() as db:
+        return await db.get(User, barber.user_id)
+
+
 def as_decimals(values):
     return {k: Decimal(v) for k, v in values.items()}
 
@@ -168,14 +173,15 @@ async def test_overview_counts_the_days_appointments_by_status(client, admin, cu
     barber = await add_barber(sessionmaker, "barbeiro@teste.com")
     day = date(2026, 11, 10)
     for status, hour in [(S.COMPLETED, 12), (S.COMPLETED, 13), (S.NO_SHOW, 14), (S.CANCELLED, 15),
-                         (S.CONFIRMED, 16), (S.PENDING, 17)]:
+                         (S.CONFIRMED, 16), (S.PENDING, 17), (S.CANCELLED, 18),
+                         (S.COMPLETED, 19)]:
         await add_appointment(sessionmaker, customer.id, barber.id, noon(day).replace(hour=hour), status)
     await add_appointment(sessionmaker, customer.id, barber.id, noon(day + timedelta(days=1)))
     await add_appointment(sessionmaker, customer.id, barber.id, noon(day - timedelta(days=1)), S.NO_SHOW)
 
     body = await overview(client, admin, target_date="2026-11-10")
     assert (body["total_appointments"], body["completed_appointments"], body["no_show_appointments"],
-            body["cancelled_appointments"]) == (6, 2, 1, 1)
+            body["cancelled_appointments"]) == (8, 3, 1, 2)
 
 
 async def test_overview_average_ticket_uses_only_the_days_appointment_charges(client, admin, sessionmaker):
@@ -211,3 +217,101 @@ async def test_overview_defaults_to_today(client, admin, customer, sessionmaker)
     await add_appointment(sessionmaker, customer.id, barber.id, noon(date.today() - timedelta(days=3)))
     body = await overview(client, admin)
     assert (body["total_appointments"], body["completed_appointments"]) == (1, 0)
+
+
+# ── desempenho e ranking dos barbeiros ──────────────────
+
+
+@pytest_asyncio.fixture
+async def team(sessionmaker, customer):
+    """Três barbeiros com faturamentos diferentes em novembro e um que não faturou."""
+    ana = await add_barber(sessionmaker, "ana@teste.com", full_name="Ana Lima")
+    bruno = await add_barber(sessionmaker, "bruno@teste.com", full_name="Bruno Reis")
+    caio = await add_barber(sessionmaker, "caio@teste.com", full_name="Caio Melo")
+    dani = await add_barber(sessionmaker, "dani@teste.com", full_name="Dani Rocha")
+    nov10 = date(2026, 11, 10)
+    await add_charged_service(sessionmaker, ana.id, nov10, Decimal("80.00"), Decimal("40.00"))
+    await add_charged_service(sessionmaker, bruno.id, nov10, Decimal("150.00"), Decimal("75.00"))
+    await add_charged_service(sessionmaker, bruno.id, date(2026, 11, 20), Decimal("50.00"), Decimal("25.00"), paid=True)
+    await add_charged_service(sessionmaker, caio.id, nov10, Decimal("30.00"), Decimal("15.00"))
+    await add_charged_service(sessionmaker, ana.id, date(2026, 12, 2), Decimal("999.00"), Decimal("500.00"))
+    for barber, count, status in [(bruno, 2, S.COMPLETED), (ana, 1, S.COMPLETED), (ana, 1, S.NO_SHOW),
+                                  (caio, 1, S.CANCELLED)]:
+        for i in range(count):
+            await add_appointment(sessionmaker, customer.id, barber.id, noon(nov10).replace(hour=12 + i), status)
+    await add_appointment(sessionmaker, customer.id, ana.id, noon(date(2026, 12, 2)))
+    return {"ana": ana, "bruno": bruno, "caio": caio, "dani": dani}
+
+
+def numbers(performance):
+    return (
+        performance["barber_name"],
+        performance["total_appointments"],
+        Decimal(performance["total_revenue_generated"]),
+        Decimal(performance["total_commission_earned"]),
+    )
+
+
+async def test_ranking_orders_barbers_by_revenue(client, admin, team):
+    response = await client.get(f"{URL}/barber-ranking", params=NOV, headers=auth(admin))
+    assert response.status_code == 200, response.text
+    body = response.json()
+    assert [numbers(p) for p in body[:3]] == [
+        ("Bruno Reis", 2, Decimal("200.00"), Decimal("100.00")),
+        ("Ana Lima", 1, Decimal("80.00"), Decimal("40.00")),
+        ("Caio Melo", 0, Decimal("30.00"), Decimal("15.00")),
+    ]
+    assert numbers(body[3]) == ("Dani Rocha", 0, Decimal("0"), Decimal("0"))
+    assert [p["barber_id"] for p in body] == [str(team[k].id) for k in ("bruno", "ana", "caio", "dani")]
+
+
+async def test_ranking_respects_the_period(client, admin, team):
+    december = {"start_date": "2026-12-01", "end_date": "2026-12-31"}
+    body = (await client.get(f"{URL}/barber-ranking", params=december, headers=auth(admin))).json()
+    assert numbers(body[0]) == ("Ana Lima", 1, Decimal("999.00"), Decimal("500.00"))
+    assert all(Decimal(p["total_revenue_generated"]) == 0 for p in body[1:])
+
+
+async def test_ranking_without_barbers_is_empty(client, admin):
+    response = await client.get(f"{URL}/barber-ranking", params=NOV, headers=auth(admin))
+    assert response.status_code == 200
+    assert response.json() == []
+
+
+async def test_barber_sees_only_own_performance(client, sessionmaker, team):
+    ana_user = await user_of(sessionmaker, team["ana"])
+    response = await client.get(f"{URL}/me", params=NOV, headers=auth(ana_user))
+    assert response.status_code == 200, response.text
+    body = response.json()
+    assert body["barber_id"] == str(team["ana"].id)
+    assert numbers(body) == ("Ana Lima", 1, Decimal("80.00"), Decimal("40.00"))
+
+
+async def test_barber_without_activity_sees_zeros(client, sessionmaker, team):
+    dani_user = await user_of(sessionmaker, team["dani"])
+    body = (await client.get(f"{URL}/me", params=NOV, headers=auth(dani_user))).json()
+    assert numbers(body) == ("Dani Rocha", 0, Decimal("0"), Decimal("0"))
+
+
+async def test_admin_without_barber_profile_gets_404_on_me(client, admin):
+    response = await client.get(f"{URL}/me", headers=auth(admin))
+    assert response.status_code == 404
+    assert response.json()["detail"] == "Perfil de barbeiro não encontrado."
+
+
+# ── permissões ──────────────────────────────────────────
+
+
+@pytest.mark.parametrize("role", [None, UserRole.CLIENT, UserRole.BARBER])
+async def test_admin_reports_are_forbidden_to_others(client, sessionmaker, role):
+    headers = auth(await add_user(sessionmaker, "outro@teste.com", role)) if role else {}
+    for path in ("/financial-summary", "/daily-overview", "/barber-ranking"):
+        response = await client.get(URL + path, headers=headers)
+        assert response.status_code == 403, (path, response.text)
+
+
+@pytest.mark.parametrize("role", [None, UserRole.CLIENT])
+async def test_own_performance_needs_barber_or_admin(client, sessionmaker, role):
+    headers = auth(await add_user(sessionmaker, "outro@teste.com", role)) if role else {}
+    response = await client.get(f"{URL}/me", headers=headers)
+    assert response.status_code == 403
