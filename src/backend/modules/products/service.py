@@ -6,7 +6,7 @@ Regras de negócio do catálogo de produtos e da trilha de auditoria do estoque.
 
 import uuid
 
-from sqlalchemy import select, update
+from sqlalchemy import func, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.exc import IntegrityError
 
@@ -29,8 +29,8 @@ class ProductService:
             if existing_sku:
                 raise ValueError(f"Já existe um produto com o SKU '{data.sku}'.")
         
-        # Verifica se o nome já existe
-        stmt = select(Product).where(Product.name == data.name)
+        # Verifica se o nome já existe, sem diferenciar maiúsculas (#61)
+        stmt = select(Product).where(func.lower(Product.name) == data.name.lower())
         existing_name = (await self.db.execute(stmt)).scalar_one_or_none()
         if existing_name:
             raise ValueError(f"Já existe um produto com o nome '{data.name}'.")
@@ -52,7 +52,9 @@ class ProductService:
 
         # Validações de unicidade se houver alteração
         if data.name is not None and data.name != product.name:
-            stmt_name = select(Product).where(Product.name == data.name)
+            stmt_name = select(Product).where(
+                func.lower(Product.name) == data.name.lower(), Product.id != product.id
+            )
             if (await self.db.execute(stmt_name)).scalar_one_or_none():
                 raise ValueError(f"Já existe um produto com o nome '{data.name}'.")
                 
@@ -120,6 +122,11 @@ class ProductService:
         
         if not product:
             raise ValueError("Produto não encontrado.")
+
+        # Produto desativado não vende nem recebe reposição; perda e ajuste continuam valendo, para
+        # zerar o estoque que sobrou (#61). A venda no caixa passa por aqui (#59).
+        if not product.is_active and data.movement_type in (MovementType.SALE, MovementType.RESTOCK):
+            raise ValueError("Produto desativado: só aceita perda ou ajuste de estoque.")
 
         # 2. Verifica se a movimentação resultará em saldo negativo
         new_quantity = product.stock_quantity + data.quantity
