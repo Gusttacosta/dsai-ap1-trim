@@ -8,16 +8,15 @@ import uuid
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select
 
 from src.backend.database import get_db
 from src.backend.modules.auth.dependencies import get_current_admin, get_current_user
-from src.backend.modules.auth.models import User
-from src.backend.modules.subscriptions.models import UserSubscription
+from src.backend.modules.auth.models import User, UserRole
 from src.backend.modules.subscriptions.schemas import (
     SubscriptionPlanCreateRequest,
     SubscriptionPlanResponse,
     SubscriptionPlanUpdateRequest,
+    SubscribeRequest,
     UserSubscriptionResponse,
 )
 from src.backend.modules.subscriptions.service import SubscriptionService
@@ -98,13 +97,18 @@ async def get_my_subscription(
 @router.post("/me/subscribe/{plan_id}", response_model=UserSubscriptionResponse, status_code=status.HTTP_201_CREATED)
 async def subscribe_to_plan(
     plan_id: uuid.UUID,
+    data: SubscribeRequest | None = None,
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
-    """(Cliente) Assina um plano (se não tiver outro ativo)."""
+    """(Cliente) Assina um plano (se não tiver outro ativo) e paga a primeira mensalidade."""
+    # Barbeiros e admins não são sócios do clube (#64).
+    if current_user.role != UserRole.CLIENT:
+        raise HTTPException(status_code=403, detail="Apenas clientes podem assinar o Trim Club.")
+    payment_method = (data or SubscribeRequest()).payment_method
     service = SubscriptionService(db)
     try:
-        return await service.subscribe(current_user.id, plan_id)
+        return await service.subscribe(current_user.id, plan_id, payment_method)
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
 
@@ -132,8 +136,4 @@ async def list_all_subscriptions(
     admin: User = Depends(get_current_admin)
 ):
     """(Admin) Lista todas as assinaturas do clube (ativas e inativas)."""
-    # Exemplo de query direta no router para poupar tempo, usando selectinload para carregar os planos
-    from sqlalchemy.orm import selectinload
-    stmt = select(UserSubscription).options(selectinload(UserSubscription.plan)).order_by(UserSubscription.created_at.desc())
-    result = await db.execute(stmt)
-    return list(result.scalars().all())
+    return await SubscriptionService(db).list_all()

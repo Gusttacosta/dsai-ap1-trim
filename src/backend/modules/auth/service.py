@@ -11,7 +11,7 @@ from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
 from typing import Optional
 
-from sqlalchemy import select, update
+from sqlalchemy import func, or_, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.backend.config import settings
@@ -165,6 +165,80 @@ class AuthService:
         await self.db.commit()
         return True
 
+    async def resend_verification(self, email: str) -> Optional[str]:
+        """Novo token de verificação de e-mail (24 h) para uma conta ativa ainda não verificada.
+        Os tokens anteriores deixam de valer (#35). Devolve None quando não há o que reenviar."""
+        user = await self.get_user_by_email(email)
+        if not user or not user.is_active or user.email_verified:
+            return None
+
+        await self.db.execute(
+            update(EmailVerificationToken)
+            .where(EmailVerificationToken.user_id == user.id, EmailVerificationToken.is_used.is_(False))
+            .values(is_used=True)
+        )
+        token_str = str(uuid.uuid4())
+        self.db.add(EmailVerificationToken(
+            user_id=user.id, token=token_str, expires_at=datetime.now(timezone.utc) + timedelta(hours=24)
+        ))
+        await self.db.commit()
+        log_mock_email(
+            user,
+            "Verificacao de email",
+            "[MOCK EMAIL] Novo token de verificacao para %s: %s",
+            user.email,
+            token_str,
+        )
+        return token_str
+
+    # ── administração de usuários (#35) ──────────────────
+
+    async def list_users(
+        self, *, role: UserRole | None = None, is_active: bool | None = None, search: str | None = None,
+        page: int = 1, per_page: int = 20,
+    ) -> tuple[list[User], int]:
+        """Usuários com filtros e paginação, do cadastro mais novo para o mais antigo."""
+        conditions = []
+        if role is not None:
+            conditions.append(User.role == role)
+        if is_active is not None:
+            conditions.append(User.is_active.is_(is_active))
+        if search:
+            pattern = f"%{search.strip().lower()}%"
+            conditions.append(or_(func.lower(User.full_name).like(pattern), func.lower(User.email).like(pattern)))
+        total = (await self.db.execute(select(func.count(User.id)).where(*conditions))).scalar_one()
+        stmt = (
+            select(User).where(*conditions).order_by(User.created_at.desc(), User.email)
+            .limit(per_page).offset((page - 1) * per_page)
+        )
+        return list((await self.db.execute(stmt)).scalars().all()), total
+
+    async def set_role(self, admin: User, user_id: uuid.UUID, role: UserRole) -> Optional[User]:
+        user = await self.get_user_by_id(user_id)
+        if user is None:
+            return None
+        if user.id == admin.id and role != UserRole.ADMIN:
+            # Sem isso, o último admin podia se rebaixar e ninguém mais administraria o sistema.
+            raise ValueError("Você não pode tirar o seu próprio acesso de administrador.")
+        user.role = role
+        await self.db.commit()
+        await self.db.refresh(user)
+        return user
+
+    async def set_status(self, admin: User, user_id: uuid.UUID, is_active: bool) -> Optional[User]:
+        user = await self.get_user_by_id(user_id)
+        if user is None:
+            return None
+        if user.id == admin.id and not is_active:
+            raise ValueError("Você não pode desativar a sua própria conta.")
+        user.is_active = is_active
+        if not is_active:
+            # A conta desativada sai de todas as sessões: o refresh dela para de funcionar.
+            await self.revoke_user_sessions(user.id)
+        await self.db.commit()
+        await self.db.refresh(user)
+        return user
+
     async def authenticate_user(self, email: str, password: str) -> Optional[User]:
         """Verifica credenciais e retorna o usuário se forem válidas."""
         user = await self.get_user_by_email(email)
@@ -178,10 +252,17 @@ class AuthService:
         return user
 
     async def create_password_reset_token(self, email: str) -> Optional[str]:
-        """Cria token de reset de senha se o e-mail existir."""
+        """Cria token de reset de senha se o e-mail existir. O pedido novo invalida os anteriores
+        ainda não usados: só o link mais recente troca a senha (#35)."""
         user = await self.get_user_by_email(email)
         if not user:
             return None
+
+        await self.db.execute(
+            update(PasswordResetToken)
+            .where(PasswordResetToken.user_id == user.id, PasswordResetToken.is_used.is_(False))
+            .values(is_used=True)
+        )
 
         token_str = str(uuid.uuid4())
         expire_at = datetime.now(timezone.utc) + timedelta(hours=1)

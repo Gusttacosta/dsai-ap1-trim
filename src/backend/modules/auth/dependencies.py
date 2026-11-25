@@ -13,14 +13,18 @@ from src.backend.modules.auth import security
 from src.backend.modules.auth.models import User, UserRole
 from src.backend.modules.auth.service import AuthService
 
-security_scheme = HTTPBearer()
+# auto_error=False: a partir do FastAPI 0.12x, o HTTPBearer responde 401 sem token. A API sempre
+# respondeu 403 "Not authenticated" nesse caso, e os testes e o frontend contam com isso (#77).
+security_scheme = HTTPBearer(auto_error=False)
 
 
 async def get_current_user(
-    token: HTTPAuthorizationCredentials = Depends(security_scheme),
+    token: HTTPAuthorizationCredentials | None = Depends(security_scheme),
     db: AsyncSession = Depends(get_db),
 ) -> User:
     """Extrai, valida o JWT e retorna o usuário do banco."""
+    if token is None or token.scheme.lower() != "bearer":
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Not authenticated")
     payload = security.decode_token(token.credentials)
     if not payload:
         raise HTTPException(

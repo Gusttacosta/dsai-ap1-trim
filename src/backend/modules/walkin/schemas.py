@@ -14,7 +14,10 @@ from src.backend.modules.walkin.models import WalkInStatus
 
 class WalkInCreateRequest(BaseModel):
     """Payload para adicionar alguém na fila."""
-    customer_name: str = Field(..., max_length=150)
+    model_config = ConfigDict(str_strip_whitespace=True)
+
+    # Vazio ou só com espaços derrubava a fila da TV (#69).
+    customer_name: str = Field(..., min_length=1, max_length=150)
     user_id: uuid.UUID | None = None
     requested_service_id: uuid.UUID
     requested_barber_id: uuid.UUID | None = None

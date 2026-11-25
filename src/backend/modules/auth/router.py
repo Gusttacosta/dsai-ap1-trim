@@ -4,13 +4,16 @@ Trim — Auth Router
 Definição dos endpoints REST para o módulo de autenticação.
 """
 
-from fastapi import APIRouter, Cookie, Depends, HTTPException, Request, Response, status
+import math
+import uuid
+
+from fastapi import APIRouter, Cookie, Depends, HTTPException, Query, Request, Response, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.backend.config import settings
 from src.backend.database import get_db
-from src.backend.modules.auth.dependencies import get_current_user
-from src.backend.modules.auth.models import User
+from src.backend.modules.auth.dependencies import get_current_admin, get_current_user
+from src.backend.modules.auth.models import User, UserRole
 from src.backend.modules.auth.schemas import (
     ForgotPasswordRequest,
     MessageResponse,
@@ -22,7 +25,12 @@ from src.backend.modules.auth.schemas import (
     UserResponse,
     UserUpdateRequest,
     VerifyEmailRequest,
+    ResendVerificationRequest,
+    RoleUpdateRequest,
+    StatusUpdateRequest,
+    UserListResponse,
 )
+from src.backend.modules.auth.rate_limit import login_limiter
 from src.backend.modules.auth.service import (
     AuthService,
     InvalidRefreshToken,
@@ -114,19 +122,30 @@ async def login(
     response: Response,
     db: AsyncSession = Depends(get_db),
 ):
-    """Autentica o usuário e retorna tokens JWT."""
-    # TODO: Implementar Rate Limiting por IP e Email
-    
+    """Autentica o usuário e retorna tokens JWT.
+
+    Depois de 5 falhas do mesmo IP e e-mail em 15 minutos, responde 429 até a janela passar (#35)."""
+    key = login_limiter.key(request.client.host if request.client else None, login_data.email)
+    wait = login_limiter.retry_after(key)
+    if wait:
+        raise HTTPException(
+            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+            detail="Muitas tentativas de login. Tente de novo em alguns minutos.",
+            headers={"Retry-After": str(wait)},
+        )
+
     service = AuthService(db)
     user = await service.authenticate_user(login_data.email, login_data.password)
-    
+
     if not user:
+        login_limiter.record_failure(key)
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="E-mail ou senha incorretos",
             headers={"WWW-Authenticate": "Bearer"},
         )
 
+    login_limiter.reset(key)
     return token_response(response, await service.issue_tokens(user))
 
 
@@ -223,6 +242,16 @@ async def verify_email(
     return MessageResponse(message="E-mail verificado com sucesso.")
 
 
+@router.post("/verify-email/resend", response_model=MessageResponse)
+async def resend_verification(
+    request_data: ResendVerificationRequest, db: AsyncSession = Depends(get_db)
+):
+    """Gera um novo token de verificação de e-mail (#35)."""
+    await AuthService(db).resend_verification(request_data.email)
+    # Mesma resposta sempre, para não revelar quais e-mails existem ou já foram verificados.
+    return MessageResponse(message="Se a conta existir e ainda não estiver verificada, um novo link será enviado.")
+
+
 @router.post("/forgot-password", response_model=MessageResponse)
 async def forgot_password(
     request_data: ForgotPasswordRequest, db: AsyncSession = Depends(get_db)
@@ -251,3 +280,63 @@ async def reset_password(
             detail="Token de reset inválido ou expirado.",
         )
     return MessageResponse(message="Senha redefinida com sucesso.")
+
+# ── Administração de usuários (admin, #35) ─────────────
+
+USER_NOT_FOUND = "Usuário não encontrado."
+
+
+@router.get("/users", response_model=UserListResponse, summary="Lista usuários (admin)")
+async def list_users(
+    role: UserRole | None = Query(None),
+    is_active: bool | None = Query(None),
+    q: str | None = Query(None, max_length=100, description="Busca no nome ou no e-mail"),
+    page: int = Query(1, ge=1),
+    per_page: int = Query(20, ge=1, le=100),
+    db: AsyncSession = Depends(get_db),
+    admin: User = Depends(get_current_admin),
+):
+    users, total = await AuthService(db).list_users(
+        role=role, is_active=is_active, search=q, page=page, per_page=per_page
+    )
+    return UserListResponse(
+        users=users, total=total, page=page, per_page=per_page, total_pages=math.ceil(total / per_page)
+    )
+
+
+@router.get("/users/{user_id}", response_model=UserResponse, summary="Detalha um usuário (admin)")
+async def get_user(
+    user_id: uuid.UUID, db: AsyncSession = Depends(get_db), admin: User = Depends(get_current_admin)
+):
+    user = await AuthService(db).get_user_by_id(user_id)
+    if user is None:
+        raise HTTPException(status_code=404, detail=USER_NOT_FOUND)
+    return user
+
+
+@router.put("/users/{user_id}/role", response_model=UserResponse, summary="Muda o perfil de acesso (admin)")
+async def update_user_role(
+    user_id: uuid.UUID, data: RoleUpdateRequest,
+    db: AsyncSession = Depends(get_db), admin: User = Depends(get_current_admin),
+):
+    try:
+        user = await AuthService(db).set_role(admin, user_id, UserRole(data.role))
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    if user is None:
+        raise HTTPException(status_code=404, detail=USER_NOT_FOUND)
+    return user
+
+
+@router.put("/users/{user_id}/status", response_model=UserResponse, summary="Ativa ou desativa (admin)")
+async def update_user_status(
+    user_id: uuid.UUID, data: StatusUpdateRequest,
+    db: AsyncSession = Depends(get_db), admin: User = Depends(get_current_admin),
+):
+    try:
+        user = await AuthService(db).set_status(admin, user_id, data.is_active)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    if user is None:
+        raise HTTPException(status_code=404, detail=USER_NOT_FOUND)
+    return user
