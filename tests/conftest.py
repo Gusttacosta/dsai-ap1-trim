@@ -20,3 +20,13 @@ def setup_teardown():
     # Setup
     yield
     # Teardown
+
+
+@pytest.fixture(autouse=True)
+def clear_login_limiter():
+    """Cada teste começa sem falhas de login registradas (o limite fica em memória, #35)."""
+    from src.backend.modules.auth.rate_limit import login_limiter
+
+    login_limiter.clear()
+    yield
+    login_limiter.clear()
