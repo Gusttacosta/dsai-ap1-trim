@@ -10,7 +10,7 @@ e test_appointments_integracao.py; aqui fica a cobrança pelo caixa.
 """
 
 import uuid
-from datetime import timedelta
+from datetime import date, timedelta
 from decimal import Decimal
 
 import pytest
@@ -23,6 +23,7 @@ from src.backend.modules.auth.models import UserRole
 from src.backend.modules.barbers.models import Barber
 from src.backend.modules.finance.models import BarberCommission, PaymentMethod, Transaction, TransactionType
 from src.backend.modules.products.models import InventoryMovement, MovementType, Product
+from src.backend.modules.subscriptions.models import SubscriptionPlan, SubscriptionStatus, UserSubscription
 from tests.agenda_fixtures import brt, count, create_shop, needs_db
 from tests.api_helpers import add_barber, add_user, auth
 
@@ -183,6 +184,16 @@ async def test_commission_goes_to_the_appointments_barber(client, shop, sessionm
 
 
 async def test_trim_club_credit_records_zero(client, shop, sessionmaker):
+    # Sócio do Trim Club com assinatura vigente: o caixa passa a exigi-la (#59).
+    async with sessionmaker() as db:
+        plan = SubscriptionPlan(name="Clube", monthly_price=Decimal("99.90"))
+        db.add(plan)
+        await db.flush()
+        db.add(UserSubscription(
+            user_id=shop["client"].id, plan_id=plan.id, start_date=date(2026, 11, 20),
+            end_date=date(2026, 12, 20), status=SubscriptionStatus.ACTIVE,
+        ))
+        await db.commit()
     appointment_id = await add_booking(sessionmaker, shop, price=Decimal("75.00"))
     response = await checkout(client, shop["admin"], appointment_id, "trim_club_credit")
     assert response.status_code == 201, response.text
