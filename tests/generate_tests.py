@@ -4,7 +4,7 @@ import os
 # integração reais e o arquivo gerado dele é apagado (#3, SPEC/2026-11-21-testes-integracao-auth.md).
 MODULES = [
     'products',
-    'subscriptions', 'finance', 'expenses', 'dashboard',
+    'subscriptions', 'expenses', 'dashboard',
     'walkin', 'gallery', 'loyalty', 'notifications'
 ]
 
