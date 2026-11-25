@@ -157,3 +157,18 @@ Sessão de 24/11 a partir das 23:04: nona parte da sessão das 19:28, separada p
 ### [2026-11-24-2310-claudecode.jsonl](2026-11-24-2310-claudecode.jsonl)
 
 Sessão de 24/11 a partir das 23:10, até 00:11 de 25/11: décima e última parte da sessão das 19:28, separada pelo `timestamp` (entradas depois de `2026-11-25T02:10:18Z`, até `2026-11-25T03:11:08Z`). Cobre a abertura do PR #76, a conferência da CI dos PRs #60 a #76 e o encerramento do dia. Foi registrada em 25/11, no mesmo dia do commit dela. Exportada com o `export_safe.py` e um filtro pelo início, sem os blocos `thinking`: 149 linhas que só tinham `thinking` ficaram de fora. Os 11 `message.id` do agente estão todos no arquivo, e os tokens batem com a transcrição original. E-mails, a parte antes do @ do e-mail pessoal, credenciais em URL e valores de senha e token foram mascarados com `***`, e o `gitleaks` não encontrou nada. A exportação não inclui o commit desta parte, o push nem a conferência da CI depois dele, que são as últimas mensagens da sessão.
+
+### [2026-11-25-1240-claudecode.jsonl](2026-11-25-1240-claudecode.jsonl)
+
+Sessão de 25/11 a partir das 12:40, exportada até `2026-11-25T18:31:57Z` com o `export_safe.py`, sem os blocos `thinking`. Ficaram de fora 281 linhas que só tinham `thinking`. Dos 363 `message.id` do agente na transcrição original até o corte, 362 estão no arquivo: o que falta é uma resposta que só tinha `thinking`, e os tokens dela ficam fora da soma do CUSTOS.md.
+
+E-mails, a parte antes do @ do e-mail pessoal, credenciais em URL e valores de senha e token foram mascarados com `***`. Os textos com `@` que sobraram são decoradores de código (`@pytest.fixture`, `@router.get`).
+
+A sessão cobre:
+- a issue #77;
+- os PRs de correção #78 a #94, que fecham as issues abertas;
+- o conserto do CUSTOS da main (#92);
+- os merges da main nos PRs da #3 (#63, #66, #68, #70, #72, #74 e #76);
+- este PR, que apaga o `tests/generate_tests.py`.
+
+O commit, o push e a abertura deste PR vêm depois do corte e não estão no arquivo.
