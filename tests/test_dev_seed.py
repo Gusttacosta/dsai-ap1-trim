@@ -194,7 +194,7 @@ async def test_seed_populates_new_database(client, db_sessionmaker):
     by_name = {p.name: (float(p.monthly_price), p.included_cuts, p.included_shaves) for p in plans}
     assert by_name == {
         "Básico": (80.0, 2, 0),
-        "Executivo": (150.0, 30, 2),
+        "Executivo": (150.0, None, 2),  # cortes ilimitados (#16)
         "Barba & Cabelo": (120.0, 2, 2),
     }
     assert verify_password(ADMIN_PASSWORD, admin.hashed_password)

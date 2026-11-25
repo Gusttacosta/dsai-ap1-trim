@@ -8,7 +8,7 @@ import uuid
 from datetime import date, datetime, timedelta
 from zoneinfo import ZoneInfo
 
-from sqlalchemy import func, select
+from sqlalchemy import func, null, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
@@ -21,6 +21,7 @@ from src.backend.modules.subscriptions.schemas import SubscriptionPlanCreateRequ
 
 
 CYCLE_DAYS = 30
+UNLIMITED_FIELDS = ("included_cuts", "included_shaves")
 ALREADY_ERROR = (
     "O usuário já possui uma assinatura ativa ou em período de carência. Cancele-a ou aguarde expirar."
 )
@@ -51,7 +52,9 @@ class SubscriptionService:
         if (await self.db.execute(stmt)).scalar_one_or_none():
             raise ValueError("Já existe um plano com esse nome.")
 
-        plan = SubscriptionPlan(**data.model_dump())
+        # None explícito vira NULL (ilimitado, #16); sem null(), o ORM aplicaria o default 0 da coluna.
+        values = {k: (null() if v is None and k in UNLIMITED_FIELDS else v) for k, v in data.model_dump().items()}
+        plan = SubscriptionPlan(**values)
         self.db.add(plan)
         await self.db.commit()
         await self.db.refresh(plan)
