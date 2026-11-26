@@ -76,4 +76,10 @@ describe('StatusBadge', () => {
     expect(screen.getByText('Ativo')).toBeTruthy();
     expect(screen.getByText('Desativado')).toBeTruthy();
   });
+
+  it('mostra o texto dado, com a cor da situação (SPEC/2026-11-26-painel-trim-club.md)', () => {
+    render(<><StatusBadge active label="Ativa" /><StatusBadge active={false} label="Vencida" /></>);
+    expect(screen.getByText('Ativa').className).toMatch(/badgeActive/);
+    expect(screen.getByText('Vencida').className).toMatch(/badgeInactive/);
+  });
 });

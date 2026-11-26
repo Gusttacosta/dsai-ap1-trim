@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { addDays, formatLongDate, formatShopDate, formatShopDateTime, shopToday, toStartDatetime } from './shopDate';
+import { addDays, formatIsoDate, formatLongDate, formatShopDate, formatShopDateTime, shopToday, toStartDatetime } from './shopDate';
 
 describe('shopToday', () => {
   it('às 22h de Brasília ainda é o mesmo dia, embora em UTC já seja o seguinte (#12)', () => {
@@ -59,5 +59,12 @@ describe('formatShopDate', () => {
 
   it('à 1h UTC ainda é o dia anterior em Brasília', () => {
     expect(formatShopDate('2026-11-27T01:00:00Z')).toBe('26/11/2026');
+  });
+});
+
+describe('formatIsoDate', () => {
+  it('mostra a data da API como dia/mês/ano, sem passar pelo fuso (SPEC/2026-11-26-painel-trim-club.md)', () => {
+    expect(formatIsoDate('2026-12-26')).toBe('26/12/2026');
+    expect(formatIsoDate('2027-01-01')).toBe('01/01/2027');
   });
 });

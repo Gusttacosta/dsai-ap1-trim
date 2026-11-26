@@ -4,6 +4,7 @@ import { AxiosError, type AxiosResponse, type InternalAxiosRequestConfig } from 
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import api from '../api';
+import { makeSubscription } from '../testUtils/trimClub';
 import Account from './Account';
 
 // SPEC/2026-11-22-auth-perfil-senha.md: a página carrega o /auth/me e usa as duas rotas novas.
@@ -35,6 +36,17 @@ function httpError(status: number): AxiosError {
   const config = { headers: {} } as InternalAxiosRequestConfig;
   const response = { status, data: {}, statusText: '', headers: {}, config } as AxiosResponse;
   return new AxiosError(`HTTP ${status}`, AxiosError.ERR_BAD_REQUEST, config, null, response);
+}
+
+/** A API simulada: o /auth/me com `user`, as rotas de `routes` e, nas outras, a conta sem
+ * agendamentos e sem assinatura (404 no /subscriptions/me). */
+function serve(user: object, routes: Record<string, unknown> = {}) {
+  mocked.get.mockImplementation(async (url: string) => {
+    if (url === '/auth/me') return { data: user };
+    if (url in routes) return { data: routes[url] };
+    if (url === '/subscriptions/me') throw httpError(404);
+    return { data: [] };
+  });
 }
 
 function renderAccount() {
@@ -70,9 +82,7 @@ describe('Account', () => {
   });
 
   it('o cliente vê "Meus agendamentos", carregado do GET /appointments/me (SPEC/2026-11-25-meus-agendamentos.md)', async () => {
-    mocked.get.mockImplementation(async (url: string) => ({
-      data: url === '/auth/me' ? USER : url === '/appointments/me' ? [APPOINTMENT] : [],
-    }));
+    serve(USER, { '/appointments/me': [APPOINTMENT] });
 
     renderAccount();
 
@@ -81,14 +91,34 @@ describe('Account', () => {
     expect(mocked.get).toHaveBeenCalledWith('/appointments/me');
   });
 
-  it.each(['barber', 'admin'])('%s não vê "Meus agendamentos" nem chama a rota', async (role) => {
-    mocked.get.mockResolvedValue({ data: { ...USER, role } });
+  it('o cliente vê a assinatura do Trim Club, carregada do GET /subscriptions/me (SPEC/2026-11-26-painel-trim-club.md)', async () => {
+    serve(USER, { '/subscriptions/me': makeSubscription('s1') });
+
+    renderAccount();
+
+    expect(await screen.findByRole('heading', { name: 'Trim Club' })).toBeTruthy();
+    expect(await screen.findByText('Renova em 26/12/2026.')).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Cancelar assinatura' })).toBeTruthy();
+  });
+
+  it('o cliente sem assinatura vê o convite para os planos', async () => {
+    serve(USER);
+
+    renderAccount();
+
+    expect(await screen.findByText(/Você ainda não é sócio do Trim Club/)).toBeTruthy();
+  });
+
+  it.each(['barber', 'admin'])('%s não vê "Meus agendamentos" nem o Trim Club, e não chama as rotas', async (role) => {
+    serve({ ...USER, role });
 
     renderAccount();
 
     expect(await screen.findByRole('heading', { name: 'Minha conta' })).toBeTruthy();
     expect(screen.queryByRole('heading', { name: 'Meus agendamentos' })).toBeNull();
+    expect(screen.queryByRole('heading', { name: 'Trim Club' })).toBeNull();
     expect(mocked.get).not.toHaveBeenCalledWith('/appointments/me');
+    expect(mocked.get).not.toHaveBeenCalledWith('/subscriptions/me');
   });
 
   it.each([401, 403])('sem sessão (%i), manda para o login', async (status) => {
@@ -108,7 +138,7 @@ describe('Account', () => {
   });
 
   it('salva o perfil pelo PUT /auth/me e mostra o telefone como o backend gravou', async () => {
-    mocked.get.mockResolvedValue({ data: USER });
+    serve(USER);
     mocked.put.mockResolvedValue({ data: { ...USER, phone: '(91) 99999-0000' } });
     renderAccount();
 
@@ -121,7 +151,7 @@ describe('Account', () => {
   });
 
   it('troca a senha pelo PUT /auth/me/password', async () => {
-    mocked.get.mockResolvedValue({ data: USER });
+    serve(USER);
     mocked.put.mockResolvedValue({ data: { message: 'Senha alterada. As outras sessões foram encerradas.' } });
     renderAccount();
 
@@ -145,5 +175,6 @@ describe('Account: senha temporária (SPEC/2026-11-25-admin-usuarios.md)', () =>
 
     expect(await screen.findByText('Tela de troca de senha')).toBeTruthy();
     expect(mocked.get).not.toHaveBeenCalledWith('/appointments/me');
+    expect(mocked.get).not.toHaveBeenCalledWith('/subscriptions/me');
   });
 });

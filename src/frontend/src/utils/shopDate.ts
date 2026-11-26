@@ -63,3 +63,9 @@ export function formatShopDate(iso: string, timeZone: string = SHOP_TIMEZONE): s
     new Date(iso),
   );
 }
+
+/** Data "AAAA-MM-DD" da API (sem hora nem fuso) como "26/11/2026". */
+export function formatIsoDate(isoDate: string): string {
+  const [year, month, day] = isoDate.split('-');
+  return `${day}/${month}/${year}`;
+}

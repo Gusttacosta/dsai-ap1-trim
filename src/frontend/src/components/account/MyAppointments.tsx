@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useMyAppointments, type MyAppointment } from '../../hooks/useMyAppointments';
 import { apiErrorMessage } from '../../utils/apiError';
 import { splitByStart } from '../../utils/appointmentStatus';
+import AccountSection from './AccountSection';
 import AppointmentItem from './AppointmentItem';
 import styles from './Account.module.css';
 
@@ -62,40 +63,18 @@ const MyAppointments = () => {
   const groupProps = { barberNames, busyId, onCancel: cancel };
 
   return (
-    <section className={styles.card} aria-labelledby="agendamentos-titulo">
-      <h2 id="agendamentos-titulo">Meus agendamentos</h2>
-
-      {status === 'loading' && <p>Carregando...</p>}
-      {status === 'error' && (
-        <>
-          <p className={styles.error} role="alert">
-            {loadError}
-          </p>
-          <div className={styles.actions}>
-            <button type="button" className={styles.submit} onClick={reload}>
-              Tentar de novo
-            </button>
-          </div>
-        </>
-      )}
-
-      {status === 'ready' && (
-        <>
-          {actionError && (
-            <p className={styles.error} role="alert">
-              {actionError}
-            </p>
-          )}
-          {notice && (
-            <p className={styles.success} role="status">
-              {notice}
-            </p>
-          )}
-          <AppointmentGroup title="Próximos" empty="Nenhum agendamento marcado." appointments={upcoming} {...groupProps} />
-          <AppointmentGroup title="Anteriores" empty="Nenhum agendamento anterior." appointments={past} {...groupProps} />
-        </>
-      )}
-    </section>
+    <AccountSection
+      id="agendamentos-titulo"
+      title="Meus agendamentos"
+      status={status}
+      loadError={loadError}
+      reload={reload}
+      notice={notice}
+      actionError={actionError}
+    >
+      <AppointmentGroup title="Próximos" empty="Nenhum agendamento marcado." appointments={upcoming} {...groupProps} />
+      <AppointmentGroup title="Anteriores" empty="Nenhum agendamento anterior." appointments={past} {...groupProps} />
+    </AccountSection>
   );
 };
 

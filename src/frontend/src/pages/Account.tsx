@@ -1,6 +1,7 @@
 import { Navigate } from 'react-router-dom';
 import { accountFallback } from '../components/account/accountFallback';
 import MyAppointments from '../components/account/MyAppointments';
+import MySubscription from '../components/account/MySubscription';
 import NotificationsList from '../components/account/NotificationsList';
 import PasswordForm from '../components/account/PasswordForm';
 import ProfileForm from '../components/account/ProfileForm';
@@ -11,7 +12,8 @@ import { ROLE_LABELS } from '../utils/roles';
 
 // "Minha conta": dados pessoais e troca de senha (SPEC/2026-11-22-auth-perfil-senha.md).
 // Serve ao cliente em /conta e ao admin e ao barbeiro em /admin/conta. Só o cliente vê
-// "Meus agendamentos" (SPEC/2026-11-25-meus-agendamentos.md).
+// "Meus agendamentos" (SPEC/2026-11-25-meus-agendamentos.md) e a assinatura do Trim Club
+// (SPEC/2026-11-26-painel-trim-club.md).
 
 type Props = {
   /** Para onde mandar quem não está logado. */
@@ -51,7 +53,12 @@ const Account = ({ loginPath }: Props) => {
         <p className={styles.warning}>Seu e-mail ainda não foi verificado.</p>
       )}
 
-      {user.role === 'client' && <MyAppointments />}
+      {user.role === 'client' && (
+        <>
+          <MySubscription />
+          <MyAppointments />
+        </>
+      )}
       <ProfileForm user={user} onSave={saveProfile} />
       <PasswordForm onChangePassword={changePassword} />
       <NotificationsList />
