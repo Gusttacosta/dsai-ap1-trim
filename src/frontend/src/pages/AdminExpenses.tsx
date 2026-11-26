@@ -103,7 +103,7 @@ const AdminExpenses = () => {
           // Trocar de despesa recria o formulário com os dados da nova.
           key={editing === 'new' ? 'new' : editing.id}
           expense={editing === 'new' ? undefined : editing}
-          categories={categories.categories}
+          categories={categories.items}
           onSave={save}
           onCancel={() => setEditing(null)}
         />
@@ -116,7 +116,7 @@ const AdminExpenses = () => {
         onPeriod={setPeriod}
         category={categoryFilter}
         onCategory={setCategoryFilter}
-        categories={categories.categories}
+        categories={categories.items}
       />
 
       <LoadState status={status} loadError={loadError} reload={reload} loadingText="Carregando despesas...">

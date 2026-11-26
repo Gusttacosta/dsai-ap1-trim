@@ -143,7 +143,7 @@ describe('useExpenseCategories', () => {
     const { result } = await loadedCategories();
 
     expect(mocked.get).toHaveBeenCalledWith('/expenses/categories');
-    expect(result.current.categories).toEqual([ALUGUEL, LUZ]);
+    expect(result.current.items).toEqual([ALUGUEL, LUZ]);
   });
 
   it('falha na carga mostra a mensagem', async () => {
@@ -159,37 +159,37 @@ describe('useExpenseCategories', () => {
     const created = category('Internet');
     mocked.post.mockResolvedValue({ data: created });
 
-    await act(() => result.current.createCategory('Internet'));
+    await act(() => result.current.create('Internet'));
 
     expect(mocked.post).toHaveBeenCalledWith('/expenses/categories', { name: 'Internet' });
-    expect(result.current.categories.map((c) => c.name)).toEqual(['Aluguel', 'Internet', 'Luz']);
+    expect(result.current.items.map((c) => c.name)).toEqual(['Aluguel', 'Internet', 'Luz']);
   });
 
   it('renomear chama o PUT e reordena', async () => {
     const { result } = await loadedCategories();
     mocked.put.mockResolvedValue({ data: { ...ALUGUEL, name: 'Templo' } });
 
-    await act(() => result.current.renameCategory('aluguel', 'Templo'));
+    await act(() => result.current.rename('aluguel', 'Templo'));
 
     expect(mocked.put).toHaveBeenCalledWith('/expenses/categories/aluguel', { name: 'Templo' });
-    expect(result.current.categories.map((c) => c.name)).toEqual(['Luz', 'Templo']);
+    expect(result.current.items.map((c) => c.name)).toEqual(['Luz', 'Templo']);
   });
 
   it('nome repetido lança o 400 e a lista não muda', async () => {
     const { result } = await loadedCategories();
     mocked.post.mockRejectedValue(httpError(400, "Já existe uma categoria chamada 'Luz'."));
 
-    await expect(act(() => result.current.createCategory('Luz'))).rejects.toThrow();
-    expect(result.current.categories).toEqual([ALUGUEL, LUZ]);
+    await expect(act(() => result.current.create('Luz'))).rejects.toThrow();
+    expect(result.current.items).toEqual([ALUGUEL, LUZ]);
   });
 
   it('excluir chama o DELETE e tira a categoria', async () => {
     const { result } = await loadedCategories();
     mocked.delete.mockResolvedValue({});
 
-    await act(() => result.current.deleteCategory('luz'));
+    await act(() => result.current.remove('luz'));
 
     expect(mocked.delete).toHaveBeenCalledWith('/expenses/categories/luz');
-    expect(result.current.categories).toEqual([ALUGUEL]);
+    expect(result.current.items).toEqual([ALUGUEL]);
   });
 });

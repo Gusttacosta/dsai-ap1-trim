@@ -1,6 +1,7 @@
 import { useCallback } from 'react';
 import api from '../api';
 import { useApiResource } from './useApiResource';
+import { upsert, useNameList } from './useNameList';
 
 // Despesas e categorias do painel do admin (SPEC/2026-11-26-painel-despesas.md), sobre as rotas
 // de /expenses (SPEC/2026-11-25-despesas-validacoes.md). As ações devolvem o que o backend
@@ -30,49 +31,12 @@ export type ExpenseChanges = Partial<ExpenseInput>;
 /** Período da lista, em "AAAA-MM-DD". Vazio não filtra. */
 export type Period = { start: string; end: string };
 
-const byName = (a: ExpenseCategory, b: ExpenseCategory) =>
-  a.name.localeCompare(b.name, 'pt-BR', { sensitivity: 'base' });
-
 /** Mesma ordem do backend: data do pagamento mais recente primeiro. */
 const byDateDesc = (a: Expense, b: Expense) => b.payment_date.localeCompare(a.payment_date);
 
-/** Põe `saved` na lista, no lugar do item de mesmo id ou como novo, e ordena. */
-function upsert<T extends { id: string }>(list: T[], saved: T, order: (a: T, b: T) => number): T[] {
-  return [...list.filter((item) => item.id !== saved.id), saved].sort(order);
-}
-
-const loadCategories = async () => (await api.get<ExpenseCategory[]>('/expenses/categories')).data;
-
-export function useExpenseCategories() {
-  const { data: categories, setData, status, loadError, reload } = useApiResource(
-    loadCategories,
-    [] as ExpenseCategory[],
-    'Não foi possível carregar as categorias.',
-  );
-
-  const store = useCallback((saved: ExpenseCategory) => {
-    setData((current) => upsert(current, saved, byName));
-    return saved;
-  }, []);
-
-  const createCategory = useCallback(
-    async (name: string) => store((await api.post<ExpenseCategory>('/expenses/categories', { name })).data),
-    [store],
-  );
-
-  const renameCategory = useCallback(
-    async (id: string, name: string) =>
-      store((await api.put<ExpenseCategory>(`/expenses/categories/${id}`, { name })).data),
-    [store],
-  );
-
-  const deleteCategory = useCallback(async (id: string) => {
-    await api.delete(`/expenses/categories/${id}`);
-    setData((current) => current.filter((c) => c.id !== id));
-  }, []);
-
-  return { categories, status, loadError, reload, createCategory, renameCategory, deleteCategory };
-}
+/** Categorias de despesa: `items`, `create`, `rename` e `remove` (useNameList). */
+export const useExpenseCategories = () =>
+  useNameList<ExpenseCategory>('/expenses/categories', 'Não foi possível carregar as categorias.');
 
 export function useAdminExpenses({ start, end }: Period) {
   const load = useCallback(async () => {

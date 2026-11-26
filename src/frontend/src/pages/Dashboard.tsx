@@ -12,6 +12,7 @@ import AdminExpenses from './AdminExpenses';
 import AdminNotifications from './AdminNotifications';
 import AdminUsers from './AdminUsers';
 import AdminBarbers from './AdminBarbers';
+import AdminGallery from './AdminGallery';
 import Account from './Account';
 
 const Overview = ({ user }: { user: any }) => {
@@ -156,6 +157,9 @@ const Dashboard = () => {
 
   if (!user) return <div style={{ padding: '2rem' }}>Carregando...</div>;
 
+  // Admin e barbeiro enviam fotos para a galeria (SPEC/2026-11-26-painel-galeria.md).
+  const sendsPhotos = user.role === 'admin' || user.role === 'barber';
+
   return (
     <div className={styles.dashboardContainer}>
       {/* Sidebar */}
@@ -175,6 +179,7 @@ const Dashboard = () => {
             <Link to="/admin/usuarios" className={getNavClass('/admin/usuarios')}>Usuários</Link>
           </>
         )}
+        {sendsPhotos && <Link to="/admin/galeria" className={getNavClass('/admin/galeria')}>Galeria</Link>}
         <Link to="/admin/conta" className={getNavClass('/admin/conta')}>Minha conta</Link>
         <div style={{ flex: 1 }} />
         <button onClick={handleLogout} style={{ padding: '1rem', background: 'transparent', border: '1px solid var(--color-border)', color: '#fff', cursor: 'pointer', borderRadius: '8px' }}>Sair</button>
@@ -185,6 +190,7 @@ const Dashboard = () => {
         <Routes>
           <Route path="/" element={<Overview user={user} />} />
           <Route path="/conta" element={<Account loginPath="/admin/login" />} />
+          {sendsPhotos && <Route path="/galeria" element={<AdminGallery isAdmin={user.role === 'admin'} />} />}
           {user.role === 'admin' && (
             <>
               <Route path="/loja" element={<AdminStore />} />
