@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { addDays, formatLongDate, shopToday, toStartDatetime } from './shopDate';
+import { addDays, formatLongDate, formatShopDateTime, shopToday, toStartDatetime } from './shopDate';
 
 describe('shopToday', () => {
   it('às 22h de Brasília ainda é o mesmo dia, embora em UTC já seja o seguinte (#12)', () => {
@@ -34,5 +34,20 @@ describe('formatLongDate', () => {
 describe('toStartDatetime', () => {
   it('usa a data escolhida, e não a de hoje em UTC', () => {
     expect(toStartDatetime('2026-11-09', '16:30')).toBe('2026-11-09T16:30:00');
+  });
+});
+
+describe('formatShopDateTime', () => {
+  it('mostra o horário UTC da API no fuso da barbearia (SPEC/2026-11-25-meus-agendamentos.md)', () => {
+    expect(formatShopDateTime('2026-12-02T13:00:00Z')).toBe('qua., 02/12/2026 às 10:00');
+  });
+
+  it('às 23h30 de Brasília ainda é o mesmo dia, embora em UTC já seja o seguinte', () => {
+    expect(formatShopDateTime('2026-12-03T02:30:00Z')).toBe('qua., 02/12/2026 às 23:30');
+  });
+
+  it('entende o horário com fuso e aceita outro fuso', () => {
+    expect(formatShopDateTime('2026-12-02T10:00:00-03:00')).toBe('qua., 02/12/2026 às 10:00');
+    expect(formatShopDateTime('2026-12-02T13:00:00Z', 'UTC')).toBe('qua., 02/12/2026 às 13:00');
   });
 });

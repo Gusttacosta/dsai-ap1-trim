@@ -1,4 +1,5 @@
 import { Navigate } from 'react-router-dom';
+import MyAppointments from '../components/account/MyAppointments';
 import NotificationsList from '../components/account/NotificationsList';
 import PasswordForm from '../components/account/PasswordForm';
 import ProfileForm from '../components/account/ProfileForm';
@@ -6,7 +7,8 @@ import styles from '../components/account/Account.module.css';
 import { useAccount, type AccountUser } from '../hooks/useAccount';
 
 // "Minha conta": dados pessoais e troca de senha (SPEC/2026-11-22-auth-perfil-senha.md).
-// Serve ao cliente em /conta e ao admin e ao barbeiro em /admin/conta.
+// Serve ao cliente em /conta e ao admin e ao barbeiro em /admin/conta. Só o cliente vê
+// "Meus agendamentos" (SPEC/2026-11-25-meus-agendamentos.md).
 
 type Props = {
   /** Para onde mandar quem não está logado. */
@@ -57,6 +59,7 @@ const Account = ({ loginPath }: Props) => {
         <p className={styles.warning}>Seu e-mail ainda não foi verificado.</p>
       )}
 
+      {user.role === 'client' && <MyAppointments />}
       <ProfileForm user={user} onSave={saveProfile} />
       <PasswordForm onChangePassword={changePassword} />
       <NotificationsList />

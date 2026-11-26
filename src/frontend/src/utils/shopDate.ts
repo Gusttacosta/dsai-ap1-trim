@@ -40,3 +40,19 @@ export function formatLongDate(isoDate: string): string {
 export function toStartDatetime(isoDate: string, time: string): string {
   return `${isoDate}T${time}:00`;
 }
+
+/** Data e hora de um instante da API no fuso da barbearia: "qua., 02/12/2026 às 10:00". */
+export function formatShopDateTime(iso: string, timeZone: string = SHOP_TIMEZONE): string {
+  const parts = new Intl.DateTimeFormat('pt-BR', {
+    timeZone,
+    weekday: 'short',
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+    hourCycle: 'h23',
+  }).formatToParts(new Date(iso));
+  const part = (type: Intl.DateTimeFormatPartTypes) => parts.find((p) => p.type === type)?.value ?? '';
+  return `${part('weekday')}, ${part('day')}/${part('month')}/${part('year')} às ${part('hour')}:${part('minute')}`;
+}
