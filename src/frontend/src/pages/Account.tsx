@@ -1,10 +1,13 @@
 import { Navigate } from 'react-router-dom';
+import { accountFallback } from '../components/account/accountFallback';
 import MyAppointments from '../components/account/MyAppointments';
 import NotificationsList from '../components/account/NotificationsList';
 import PasswordForm from '../components/account/PasswordForm';
 import ProfileForm from '../components/account/ProfileForm';
 import styles from '../components/account/Account.module.css';
 import { useAccount, type AccountUser } from '../hooks/useAccount';
+import { CHANGE_PASSWORD_PATH } from '../utils/afterLogin';
+import { ROLE_LABELS } from '../utils/roles';
 
 // "Minha conta": dados pessoais e troca de senha (SPEC/2026-11-22-auth-perfil-senha.md).
 // Serve ao cliente em /conta e ao admin e ao barbeiro em /admin/conta. Só o cliente vê
@@ -13,12 +16,6 @@ import { useAccount, type AccountUser } from '../hooks/useAccount';
 type Props = {
   /** Para onde mandar quem não está logado. */
   loginPath: string;
-};
-
-const ROLE_LABELS: Record<AccountUser['role'], string> = {
-  admin: 'Administrador',
-  barber: 'Barbeiro',
-  client: 'Cliente',
 };
 
 const Avatar = ({ user }: { user: AccountUser }) =>
@@ -31,17 +28,12 @@ const Avatar = ({ user }: { user: AccountUser }) =>
   );
 
 const Account = ({ loginPath }: Props) => {
-  const { user, status, loadError, saveProfile, changePassword } = useAccount();
+  const account = useAccount();
+  const { user, saveProfile, changePassword } = account;
 
-  if (status === 'unauthenticated') return <Navigate to={loginPath} replace />;
-  if (status === 'loading') return <p className={styles.page}>Carregando...</p>;
-  if (status === 'error' || !user) {
-    return (
-      <p className={`${styles.page} ${styles.error}`} role="alert">
-        {loadError}
-      </p>
-    );
-  }
+  const fallback = accountFallback(account, loginPath);
+  if (fallback || !user) return fallback;
+  if (user.must_change_password) return <Navigate to={CHANGE_PASSWORD_PATH} replace />;
 
   return (
     <div className={styles.page}>

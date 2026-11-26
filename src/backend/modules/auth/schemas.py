@@ -212,6 +212,7 @@ class UserResponse(BaseModel):
     avatar_url: str | None
     is_active: bool
     email_verified: bool
+    must_change_password: bool
     created_at: datetime
     updated_at: datetime
 
@@ -226,6 +227,12 @@ class TokenResponse(BaseModel):
 
 class MessageResponse(BaseModel):
     """Schema de resposta genérica com mensagem."""
+    message: str
+
+
+class TemporaryPasswordResponse(BaseModel):
+    """Senha temporária gerada pelo admin: aparece só nesta resposta (#99)."""
+    temporary_password: str
     message: str
 
 

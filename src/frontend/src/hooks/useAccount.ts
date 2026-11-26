@@ -2,6 +2,7 @@ import { isAxiosError } from 'axios';
 import { useCallback, useEffect, useState } from 'react';
 import api from '../api';
 import { apiErrorMessage } from '../utils/apiError';
+import type { UserRole } from '../utils/roles';
 
 // Dados da conta do usuário logado e as duas ações da página "Minha conta"
 // (SPEC/2026-11-22-auth-perfil-senha.md).
@@ -12,8 +13,10 @@ export type AccountUser = {
   full_name: string;
   phone: string | null;
   avatar_url: string | null;
-  role: 'admin' | 'barber' | 'client';
+  role: UserRole;
   email_verified: boolean;
+  /** Senha temporária ainda não trocada (SPEC/2026-11-25-admin-usuarios.md). */
+  must_change_password?: boolean;
 };
 
 export type ProfileChanges = Partial<Pick<AccountUser, 'full_name' | 'phone' | 'avatar_url'>>;

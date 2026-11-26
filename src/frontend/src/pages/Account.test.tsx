@@ -43,6 +43,7 @@ function renderAccount() {
       <Routes>
         <Route path="/conta" element={<Account loginPath="/login" />} />
         <Route path="/login" element={<p>Tela de login</p>} />
+        <Route path="/trocar-senha" element={<p>Tela de troca de senha</p>} />
       </Routes>
     </MemoryRouter>,
   );
@@ -134,5 +135,15 @@ describe('Account', () => {
       current_password: 'senhaAtual1',
       new_password: 'senhaNova2',
     });
+  });
+});
+
+describe('Account: senha temporária (SPEC/2026-11-25-admin-usuarios.md)', () => {
+  it('com a troca pendente, manda para a troca de senha', async () => {
+    mocked.get.mockResolvedValue({ data: { ...USER, must_change_password: true } });
+    renderAccount();
+
+    expect(await screen.findByText('Tela de troca de senha')).toBeTruthy();
+    expect(mocked.get).not.toHaveBeenCalledWith('/appointments/me');
   });
 });

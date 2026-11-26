@@ -12,7 +12,11 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.backend.config import settings
 from src.backend.database import get_db
-from src.backend.modules.auth.dependencies import get_current_admin, get_current_user
+from src.backend.modules.auth.dependencies import (
+    get_current_admin,
+    get_current_user,
+    get_user_with_pending_password,
+)
 from src.backend.modules.auth.models import User, UserRole
 from src.backend.modules.auth.schemas import (
     ForgotPasswordRequest,
@@ -28,6 +32,7 @@ from src.backend.modules.auth.schemas import (
     ResendVerificationRequest,
     RoleUpdateRequest,
     StatusUpdateRequest,
+    TemporaryPasswordResponse,
     UserListResponse,
 )
 from src.backend.modules.auth.rate_limit import login_limiter
@@ -36,6 +41,7 @@ from src.backend.modules.auth.service import (
     InvalidRefreshToken,
     IssuedTokens,
     SamePassword,
+    TemporaryPasswordRefused,
     WrongCurrentPassword,
 )
 
@@ -189,8 +195,8 @@ async def logout(
 
 
 @router.get("/me", response_model=UserResponse, summary="Obtém usuário logado")
-async def get_me(current_user: User = Depends(get_current_user)):
-    """Retorna os dados do próprio usuário autenticado."""
+async def get_me(current_user: User = Depends(get_user_with_pending_password)):
+    """Retorna os dados do próprio usuário autenticado, também com a troca de senha pendente."""
     return current_user
 
 
@@ -208,10 +214,12 @@ async def update_me(
 async def change_my_password(
     data: PasswordChangeRequest,
     refresh_token: str | None = Cookie(default=None),
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(get_user_with_pending_password),
     db: AsyncSession = Depends(get_db),
 ):
-    """Troca a senha conferindo a atual e encerra as outras sessões do usuário."""
+    """Troca a senha conferindo a atual e encerra as outras sessões do usuário.
+
+    É a única escrita aceita com a senha temporária ainda pendente, e a troca a encerra (#99)."""
     try:
         await AuthService(db).change_password(
             current_user, data.current_password, data.new_password, refresh_token
@@ -340,3 +348,28 @@ async def update_user_status(
     if user is None:
         raise HTTPException(status_code=404, detail=USER_NOT_FOUND)
     return user
+
+
+@router.post(
+    "/users/{user_id}/temporary-password",
+    response_model=TemporaryPasswordResponse,
+    summary="Gera uma senha temporária (admin)",
+)
+async def create_temporary_password(
+    user_id: uuid.UUID, response: Response,
+    db: AsyncSession = Depends(get_db), admin: User = Depends(get_current_admin),
+):
+    """A senha aparece só nesta resposta, e o usuário precisa trocá-la ao entrar (#99)."""
+    try:
+        result = await AuthService(db).set_temporary_password(admin, user_id)
+    except TemporaryPasswordRefused as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    if result is None:
+        raise HTTPException(status_code=404, detail=USER_NOT_FOUND)
+    # Nem o navegador nem um proxy guardam a resposta com a senha.
+    response.headers["Cache-Control"] = "no-store"
+    _, password = result
+    return TemporaryPasswordResponse(
+        temporary_password=password,
+        message="Senha temporária gerada. Ela não será mostrada de novo.",
+    )

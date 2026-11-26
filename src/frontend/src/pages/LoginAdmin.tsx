@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import api from '../api';
+import { pathAfterLogin } from '../utils/afterLogin';
 
 const LoginAdmin = () => {
   const [email, setEmail] = useState('');
@@ -18,7 +19,7 @@ const LoginAdmin = () => {
       const role = response.data.user?.role;
       if (role === 'admin' || role === 'barber') {
         localStorage.setItem('token', response.data.access_token);
-        navigate('/admin');
+        navigate(pathAfterLogin(response.data.user));
       } else {
         setError('Acesso negado. Apenas administradores e barbeiros podem acessar este painel.');
       }
