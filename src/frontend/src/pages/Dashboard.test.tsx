@@ -38,12 +38,14 @@ afterEach(cleanup);
 
 const requested = (url: string) => mockedGet.mock.calls.some(([called]) => called === url);
 
-// SPEC/2026-11-26-painel-barbeiros.md e SPEC/2026-11-26-painel-despesas.md: as abas "Barbeiros"
-// e "Despesas" seguem a mesma regra.
+// SPEC/2026-11-26-painel-barbeiros.md, SPEC/2026-11-26-painel-despesas.md e
+// SPEC/2026-11-26-painel-trim-club.md: as abas "Barbeiros", "Despesas" e "Trim Club" seguem a
+// mesma regra.
 describe.each([
   ['Usuários', '👥 Usuários', '/admin/usuarios', '/auth/users'],
   ['Barbeiros', '💈 Barbeiros', '/admin/barbeiros', '/barbers/admin'],
   ['Despesas', '💸 Despesas', '/admin/despesas', '/expenses'],
+  ['Trim Club', '👑 Trim Club', '/admin/trim-club', '/subscriptions/users'],
 ])('Dashboard: aba %s', (link, heading, path, apiUrl) => {
   it(`o admin vê o item no menu e a tela em ${path}`, async () => {
     renderAt(path, me('admin'));
@@ -53,8 +55,8 @@ describe.each([
     expect(requested(apiUrl)).toBe(true);
   });
 
-  it('o barbeiro não vê o item nem a tela', async () => {
-    renderAt(path, me('barber'));
+  it.each(['barber', 'client'])('o perfil %s não vê o item nem a tela', async (role) => {
+    renderAt(path, me(role));
 
     expect(await screen.findByRole('link', { name: 'Minha conta' })).toBeTruthy();
     expect(screen.queryByRole('link', { name: link })).toBeNull();
