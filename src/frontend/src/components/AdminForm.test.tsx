@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { cleanup, fireEvent, render, screen } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { httpError } from '../testUtils/httpError';
 import AdminForm, { FormField, StatusBadge } from './AdminForm';
@@ -67,6 +67,53 @@ describe('AdminForm', () => {
     const { onCancel } = renderForm();
     fireEvent.click(screen.getByRole('button', { name: 'Cancelar' }));
     expect(onCancel).toHaveBeenCalled();
+  });
+});
+
+// SPEC/2026-11-26-painel-fidelidade.md: a confirmação antes de gravar (o ajuste de pontos).
+describe('AdminForm com confirm', () => {
+  const question = 'Adicionar 50 pts a Ana?';
+
+  it('com os campos válidos, mostra a pergunta e só grava no "Confirmar"', async () => {
+    const { save } = renderForm({ confirm: () => question });
+    submit();
+    expect((await screen.findByRole('status')).textContent).toBe(question);
+    expect(save).not.toHaveBeenCalled();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Confirmar' }));
+    await waitFor(() => expect(save).toHaveBeenCalledTimes(1));
+  });
+
+  it('campo inválido não chega à pergunta', async () => {
+    const confirm = vi.fn(() => question);
+    renderForm({ validate: () => 'Campo inválido', confirm });
+    submit();
+    expect((await screen.findByRole('alert')).textContent).toBe('Campo inválido');
+    expect(confirm).not.toHaveBeenCalled();
+  });
+
+  it('"Voltar" e mudar um campo voltam ao formulário sem gravar', async () => {
+    const { save, onCancel } = renderForm({ confirm: () => question });
+    submit();
+    fireEvent.click(await screen.findByRole('button', { name: 'Voltar' }));
+    expect(screen.queryByText(question)).toBeNull();
+    expect(screen.getByRole('button', { name: 'Gravar' })).toBeTruthy();
+
+    submit();
+    await screen.findByText(question);
+    fireEvent.change(screen.getByLabelText('Campo'), { target: { value: 'outro' } });
+    expect(screen.queryByText(question)).toBeNull();
+    expect(save).not.toHaveBeenCalled();
+    expect(onCancel).not.toHaveBeenCalled();
+  });
+
+  it('o erro da API depois de confirmar aparece e volta ao formulário', async () => {
+    renderForm({ confirm: () => question, save: vi.fn().mockRejectedValue(httpError(400, 'Saldo insuficiente.')) });
+    submit();
+    fireEvent.click(await screen.findByRole('button', { name: 'Confirmar' }));
+    expect((await screen.findByRole('alert')).textContent).toBe('Saldo insuficiente.');
+    expect(screen.queryByText(question)).toBeNull();
+    expect(screen.getByRole('button', { name: 'Gravar' })).toBeTruthy();
   });
 });
 
