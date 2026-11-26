@@ -34,7 +34,8 @@ vê fotos reais e filtra pelo estilo que procura.
 - O item "Galeria" e a rota aparecem para o **admin e o barbeiro** (os dois enviam fotos).
 - O barbeiro vê só o botão de envio. Pendentes, publicadas e tags aparecem só para o admin, e a
   tela do barbeiro não chama as rotas de admin (`/gallery/pending`).
-- O cliente não entra no painel (já é assim hoje).
+- O cliente não vê o item nem a tela: o login não o leva ao painel, mas `/admin` abre para
+  qualquer conta, então a aba confere o perfil.
 
 ### Enviar foto ("+ Enviar foto")
 
@@ -98,8 +99,8 @@ vê fotos reais e filtra pelo estilo que procura.
 
 Testes vitest (com a API simulada) que falham se a tela for desfeita:
 
-- [ ] Admin e barbeiro veem "Galeria" no menu e a tela em `/admin/galeria`; o barbeiro não vê
-      pendentes, publicadas nem tags, e a tela dele não chama `/gallery/pending`.
+- [ ] Admin e barbeiro veem "Galeria" no menu e a tela em `/admin/galeria`, e o cliente não; o
+      barbeiro não vê pendentes, publicadas nem tags, e a tela dele não chama `/gallery/pending`.
 - [ ] Enviar: o barbeiro manda URL, descrição e tags, sem `barber_id`, e vê o aviso da
       aprovação; o admin manda o `barber_id` escolhido e a foto entra nas publicadas.
 - [ ] URL vazia, sem http(s) ou com mais de 1.000 caracteres, descrição longa e admin sem
