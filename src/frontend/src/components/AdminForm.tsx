@@ -85,10 +85,13 @@ export const FormField = ({ id, label, wide = false, children }: {
   </div>
 );
 
-/** Selo de situação das linhas do painel: "Ativo" ou "Desativado". */
-export const StatusBadge = ({ active }: { active: boolean }) => (
+/**
+ * Selo de situação das linhas do painel: "Ativo" ou "Desativado", ou `label` com a cor de
+ * `active` (a situação da assinatura, SPEC/2026-11-26-painel-trim-club.md).
+ */
+export const StatusBadge = ({ active, label }: { active: boolean; label?: string }) => (
   <span className={`${styles.badge} ${active ? styles.badgeActive : styles.badgeInactive}`}>
-    {active ? 'Ativo' : 'Desativado'}
+    {label ?? (active ? 'Ativo' : 'Desativado')}
   </span>
 );
 
