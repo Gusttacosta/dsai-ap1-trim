@@ -1,12 +1,11 @@
 import { useCallback } from 'react';
 import api from '../api';
+import type { UserRole } from '../utils/roles';
 import { useApiResource } from './useApiResource';
 
 // Usuários no painel do admin: a página da listagem (GET /auth/users) e as ações sobre um
 // usuário (SPEC/2026-11-25-admin-usuarios.md). As ações devolvem o que o backend gravou e
 // lançam o erro da API, para quem chamou mostrar a mensagem.
-
-export type UserRole = 'admin' | 'barber' | 'client';
 
 export type AdminUser = {
   id: string;
