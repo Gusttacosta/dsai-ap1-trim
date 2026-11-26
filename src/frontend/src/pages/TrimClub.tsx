@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import api from '../api';
 import styles from './TrimClub.module.css';
+import { planBenefits } from '../utils/trimClub';
 
 // Campos de GET /subscriptions/plans. A tela lia `price` e `billing_cycle`, que a API não tem, e
 // mostrava "R$ NaN/ano" (SPEC/2026-11-25-alembic-migracoes.md).
@@ -13,12 +14,6 @@ export interface Plan {
   /** null = ilimitado (#16) */
   included_cuts: number | null;
   included_shaves: number | null;
-}
-
-/** "Ilimitados", "2 por mês" ou nada, quando o plano não inclui o serviço. */
-export function quantityLabel(value: number | null): string | null {
-  if (value === null) return 'Ilimitados';
-  return value > 0 ? `${value} por mês` : null;
 }
 
 const TrimClub = () => {
@@ -77,8 +72,9 @@ const TrimClub = () => {
               R$ {Number(plan.monthly_price).toFixed(2).replace('.', ',')}<span>/mês</span>
             </div>
             <ul className={styles.featureList}>
-              {quantityLabel(plan.included_cuts) && <li>Cortes: {quantityLabel(plan.included_cuts)}</li>}
-              {quantityLabel(plan.included_shaves) && <li>Barbas: {quantityLabel(plan.included_shaves)}</li>}
+              {planBenefits(plan).map((benefit) => (
+                <li key={benefit}>{benefit}</li>
+              ))}
               {(plan.description ?? '')
                 .split(',')
                 .map((feature) => feature.trim())
