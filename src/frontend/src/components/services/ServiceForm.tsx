@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import type { AdminService, ServiceChanges, ServiceInput } from '../../hooks/useAdminServices';
-import { apiErrorMessage } from '../../utils/apiError';
+import AdminForm, { FormField } from '../AdminForm';
 import {
   parseDuration,
   parsePrice,
@@ -9,7 +9,6 @@ import {
   validatePrice,
   validateServiceName,
 } from '../../utils/serviceValidation';
-import styles from './Services.module.css';
 
 // Formulário de criação e de edição de um serviço (SPEC/2026-11-23-painel-servicos.md).
 
@@ -56,80 +55,43 @@ function initialFields(service?: AdminService): ServiceFields {
 
 const ServiceForm = ({ service, onSave, onCancel }: Props) => {
   const [fields, setFields] = useState<ServiceFields>(() => initialFields(service));
-  const [error, setError] = useState('');
-  const [info, setInfo] = useState('');
-  const [saving, setSaving] = useState(false);
 
-  const editing = service !== undefined;
-  const title = editing ? 'Editar serviço' : 'Novo serviço';
   const set = (key: keyof ServiceFields) => (
     event: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>,
   ) => setFields((current) => ({ ...current, [key]: event.target.value }));
 
-  const handleSubmit = async (event: React.FormEvent) => {
-    event.preventDefault();
-    setError('');
-    setInfo('');
-
-    const problem =
-      validateServiceName(fields.name) ?? validatePrice(fields.price) ?? validateDuration(fields.duration);
-    if (problem) {
-      setError(problem);
-      return;
-    }
-
-    const data = editing ? serviceChanges(service, fields) : serviceInput(fields);
-    if (Object.keys(data).length === 0) {
-      setInfo('Nada mudou.');
-      return;
-    }
-
-    setSaving(true);
-    try {
-      // Quem chamou fecha o formulário depois de salvar: daqui em diante ele some.
-      await onSave(data);
-    } catch (err) {
-      setError(apiErrorMessage(err, 'Não foi possível salvar o serviço.'));
-      setSaving(false);
-    }
+  const save = async () => {
+    const data = service ? serviceChanges(service, fields) : serviceInput(fields);
+    if (Object.keys(data).length === 0) return false;
+    await onSave(data);
+    return true;
   };
 
   return (
-    <form className={styles.form} onSubmit={handleSubmit} noValidate aria-label={title}>
-      <h3>{title}</h3>
-
-      <div className={`${styles.field} ${styles.wide}`}>
-        <label htmlFor="servico-nome">Nome</label>
+    <AdminForm
+      title={service ? 'Editar serviço' : 'Novo serviço'}
+      submitLabel="Salvar serviço"
+      errorFallback="Não foi possível salvar o serviço."
+      validate={() => validateServiceName(fields.name) ?? validatePrice(fields.price) ?? validateDuration(fields.duration)}
+      save={save}
+      onCancel={onCancel}
+    >
+      <FormField id="servico-nome" label="Nome" wide>
         <input id="servico-nome" value={fields.name} onChange={set('name')} />
-      </div>
+      </FormField>
 
-      <div className={`${styles.field} ${styles.wide}`}>
-        <label htmlFor="servico-descricao">Descrição (opcional)</label>
+      <FormField id="servico-descricao" label="Descrição (opcional)" wide>
         <textarea id="servico-descricao" rows={2} value={fields.description} onChange={set('description')} />
-      </div>
+      </FormField>
 
-      <div className={styles.field}>
-        <label htmlFor="servico-preco">Preço (R$)</label>
+      <FormField id="servico-preco" label="Preço (R$)">
         <input id="servico-preco" inputMode="decimal" placeholder="35,00" value={fields.price} onChange={set('price')} />
-      </div>
+      </FormField>
 
-      <div className={styles.field}>
-        <label htmlFor="servico-duracao">Duração (min)</label>
+      <FormField id="servico-duracao" label="Duração (min)">
         <input id="servico-duracao" inputMode="numeric" placeholder="30" value={fields.duration} onChange={set('duration')} />
-      </div>
-
-      {error && <p className={styles.error} role="alert">{error}</p>}
-      {info && <p className={styles.info} role="status">{info}</p>}
-
-      <div className={styles.actions}>
-        <button type="button" className={styles.secondary} onClick={onCancel} disabled={saving}>
-          Cancelar
-        </button>
-        <button type="submit" className={styles.primary} disabled={saving}>
-          {saving ? 'Salvando...' : 'Salvar serviço'}
-        </button>
-      </div>
-    </form>
+      </FormField>
+    </AdminForm>
   );
 };
 

@@ -1,4 +1,5 @@
 import shared from '../../pages/AdminShared.module.css';
+import { StatusBadge } from '../AdminForm';
 import ConfirmButton from '../ConfirmButton';
 import type { AdminService } from '../../hooks/useAdminServices';
 import { formatPrice } from '../../utils/serviceValidation';
@@ -44,9 +45,7 @@ const ServiceRow = ({ service, busy, onEdit, onDeactivate, onReactivate }: Props
       <td>{service.duration_minutes} min</td>
       <td>{formatPrice(service.price)}</td>
       <td>
-        <span className={`${styles.badge} ${service.is_active ? styles.badgeActive : styles.badgeInactive}`}>
-          {service.is_active ? 'Ativo' : 'Desativado'}
-        </span>
+        <StatusBadge active={service.is_active} />
       </td>
       <td>{actions}</td>
     </tr>
