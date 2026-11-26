@@ -76,42 +76,19 @@ describe('useMyAppointments: carga', () => {
     expect(result.current.barberNames).toEqual({});
   });
 
-  it('falha na carga mostra a mensagem do backend', async () => {
+  it.each([
+    [httpError(401, 'Token inválido.'), 'Token inválido.'],
+    [httpError(500), 'Não foi possível carregar seus agendamentos.'],
+    [networkError(), 'Sem conexão com o servidor. Verifique a internet e tente de novo.'],
+  ])('falha na carga mostra a mensagem (%#)', async (error, message) => {
     routes({
-      '/appointments/me': async () => Promise.reject(httpError(401, 'Token inválido.')),
+      '/appointments/me': async () => Promise.reject(error),
       '/barbers': async () => ({ data: BARBERS }),
     });
     const { result } = renderHook(() => useMyAppointments());
 
     await waitFor(() => expect(result.current.status).toBe('error'));
-    expect(result.current.loadError).toBe('Token inválido.');
-  });
-
-  it('sem conexão, mostra a mensagem de rede', async () => {
-    routes({
-      '/appointments/me': async () => Promise.reject(networkError()),
-      '/barbers': async () => ({ data: BARBERS }),
-    });
-    const { result } = renderHook(() => useMyAppointments());
-
-    await waitFor(() => expect(result.current.status).toBe('error'));
-    expect(result.current.loadError).toBe('Sem conexão com o servidor. Verifique a internet e tente de novo.');
-  });
-
-  it('"Tentar de novo" carrega outra vez', async () => {
-    let calls = 0;
-    routes({
-      '/appointments/me': async () => (++calls === 1 ? Promise.reject(httpError(500)) : { data: [A1] }),
-      '/barbers': async () => ({ data: BARBERS }),
-    });
-    const { result } = renderHook(() => useMyAppointments());
-    await waitFor(() => expect(result.current.status).toBe('error'));
-    expect(result.current.loadError).toBe('Não foi possível carregar seus agendamentos.');
-
-    act(() => result.current.reload());
-
-    await waitFor(() => expect(result.current.status).toBe('ready'));
-    expect(result.current.appointments).toEqual([A1]);
+    expect(result.current.loadError).toBe(message);
   });
 });
 

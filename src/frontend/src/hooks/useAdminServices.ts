@@ -1,6 +1,6 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback } from 'react';
 import api from '../api';
-import { apiErrorMessage } from '../utils/apiError';
+import { useApiResource, type LoadStatus } from './useApiResource';
 
 // Catálogo de serviços do painel do admin: carga pelo GET /services/admin e as ações sobre
 // a API (SPEC/2026-11-23-painel-servicos.md). As ações devolvem o serviço como o backend
@@ -21,41 +21,23 @@ export type ServiceInput = Pick<AdminService, 'name' | 'description' | 'price' |
 /** Alteração parcial: só os campos que mudaram. */
 export type ServiceChanges = Partial<ServiceInput & Pick<AdminService, 'is_active'>>;
 
-export type ServicesStatus = 'loading' | 'ready' | 'error';
+export type ServicesStatus = LoadStatus;
 
 /** Mesma ordem do backend: alfabética, sem diferenciar maiúsculas. */
 function sortByName(services: AdminService[]): AdminService[] {
   return [...services].sort((a, b) => a.name.localeCompare(b.name, 'pt-BR', { sensitivity: 'base' }));
 }
 
+const loadServices = async () => (await api.get<AdminService[]>('/services/admin')).data;
+
 export function useAdminServices() {
-  const [services, setServices] = useState<AdminService[]>([]);
-  const [status, setStatus] = useState<ServicesStatus>('loading');
-  const [loadError, setLoadError] = useState('');
-  // Mudar o número pede uma nova carga ("Tentar de novo").
-  const [attempt, setAttempt] = useState(0);
-
-  useEffect(() => {
-    let active = true;
-    setStatus('loading');
-    api
-      .get<AdminService[]>('/services/admin')
-      .then((response) => {
-        if (!active) return;
-        setServices(response.data);
-        setStatus('ready');
-      })
-      .catch((error) => {
-        if (!active) return;
-        setLoadError(apiErrorMessage(error, 'Não foi possível carregar os serviços.'));
-        setStatus('error');
-      });
-    return () => {
-      active = false;
-    };
-  }, [attempt]);
-
-  const reload = useCallback(() => setAttempt((n) => n + 1), []);
+  const {
+    data: services,
+    setData: setServices,
+    status,
+    loadError,
+    reload,
+  } = useApiResource(loadServices, [] as AdminService[], 'Não foi possível carregar os serviços.');
 
   /** Põe o serviço gravado na lista, no lugar do antigo ou como novo, mantendo a ordem. */
   const store = useCallback((saved: AdminService) => {
