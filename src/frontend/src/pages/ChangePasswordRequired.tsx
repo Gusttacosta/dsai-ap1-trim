@@ -1,4 +1,5 @@
 import { Navigate, useNavigate } from 'react-router-dom';
+import { accountFallback } from '../components/account/accountFallback';
 import PasswordForm from '../components/account/PasswordForm';
 import styles from '../components/account/Account.module.css';
 import { useAccount } from '../hooks/useAccount';
@@ -9,18 +10,12 @@ import { homeFor } from '../utils/afterLogin';
 // área do seu perfil.
 
 const ChangePasswordRequired = () => {
-  const { user, status, loadError, changePassword } = useAccount();
+  const account = useAccount();
+  const { user, changePassword } = account;
   const navigate = useNavigate();
 
-  if (status === 'unauthenticated') return <Navigate to="/login" replace />;
-  if (status === 'loading') return <p className={styles.page}>Carregando...</p>;
-  if (status === 'error' || !user) {
-    return (
-      <p className={`${styles.page} ${styles.error}`} role="alert">
-        {loadError}
-      </p>
-    );
-  }
+  const fallback = accountFallback(account, '/login');
+  if (fallback || !user) return fallback;
   if (!user.must_change_password) return <Navigate to={homeFor(user.role)} replace />;
 
   const change = async (current: string, next: string) => {

@@ -1,4 +1,5 @@
 import { Navigate } from 'react-router-dom';
+import { accountFallback } from '../components/account/accountFallback';
 import MyAppointments from '../components/account/MyAppointments';
 import NotificationsList from '../components/account/NotificationsList';
 import PasswordForm from '../components/account/PasswordForm';
@@ -27,18 +28,12 @@ const Avatar = ({ user }: { user: AccountUser }) =>
   );
 
 const Account = ({ loginPath }: Props) => {
-  const { user, status, loadError, saveProfile, changePassword } = useAccount();
+  const account = useAccount();
+  const { user, saveProfile, changePassword } = account;
 
-  if (status === 'unauthenticated') return <Navigate to={loginPath} replace />;
-  if (user?.must_change_password) return <Navigate to={CHANGE_PASSWORD_PATH} replace />;
-  if (status === 'loading') return <p className={styles.page}>Carregando...</p>;
-  if (status === 'error' || !user) {
-    return (
-      <p className={`${styles.page} ${styles.error}`} role="alert">
-        {loadError}
-      </p>
-    );
-  }
+  const fallback = accountFallback(account, loginPath);
+  if (fallback || !user) return fallback;
+  if (user.must_change_password) return <Navigate to={CHANGE_PASSWORD_PATH} replace />;
 
   return (
     <div className={styles.page}>

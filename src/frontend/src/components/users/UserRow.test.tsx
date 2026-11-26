@@ -1,5 +1,6 @@
 // @vitest-environment jsdom
-import { cleanup, fireEvent, render, screen } from '@testing-library/react';
+import { cleanup, fireEvent, screen } from '@testing-library/react';
+import { renderInTable } from '../../testUtils/renderInTable';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { AdminUser } from '../../hooks/useAdminUsers';
 import UserRow from './UserRow';
@@ -21,13 +22,7 @@ const ANA: AdminUser = {
 
 function renderRow(user: AdminUser = ANA, { isSelf = false, busy = false } = {}) {
   const handlers = { onChangeRole: vi.fn(), onSetActive: vi.fn(), onGeneratePassword: vi.fn() };
-  render(
-    <table>
-      <tbody>
-        <UserRow user={user} isSelf={isSelf} busy={busy} {...handlers} />
-      </tbody>
-    </table>,
-  );
+  renderInTable(<UserRow user={user} isSelf={isSelf} busy={busy} {...handlers} />);
   return handlers;
 }
 

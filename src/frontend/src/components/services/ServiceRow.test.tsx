@@ -1,5 +1,6 @@
 // @vitest-environment jsdom
-import { cleanup, fireEvent, render, screen } from '@testing-library/react';
+import { cleanup, fireEvent, screen } from '@testing-library/react';
+import { renderInTable } from '../../testUtils/renderInTable';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { AdminService } from '../../hooks/useAdminServices';
 import ServiceRow from './ServiceRow';
@@ -17,13 +18,7 @@ const CORTE: AdminService = {
 
 function renderRow(service: AdminService = CORTE, busy = false) {
   const handlers = { onEdit: vi.fn(), onDeactivate: vi.fn(), onReactivate: vi.fn() };
-  render(
-    <table>
-      <tbody>
-        <ServiceRow service={service} busy={busy} {...handlers} />
-      </tbody>
-    </table>,
-  );
+  renderInTable(<ServiceRow service={service} busy={busy} {...handlers} />);
   return handlers;
 }
 
