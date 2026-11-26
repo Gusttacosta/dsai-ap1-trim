@@ -6,6 +6,8 @@ Manipula usuários, tokens, e controla taxa de login.
 """
 
 import logging
+import secrets
+import string
 import uuid
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
@@ -38,6 +40,22 @@ class WrongCurrentPassword(Exception):
 
 class SamePassword(Exception):
     """A senha nova é igual à atual."""
+
+
+class TemporaryPasswordRefused(Exception):
+    """O admin não pode gerar a senha temporária para esta conta (a mensagem diz por quê)."""
+
+
+TEMPORARY_PASSWORD_LENGTH = 12
+TEMPORARY_PASSWORD_ALPHABET = string.ascii_letters + string.digits
+
+
+def generate_temporary_password() -> str:
+    """Senha aleatória de 12 letras e dígitos, com pelo menos uma de cada (regra de senha forte)."""
+    while True:
+        password = "".join(secrets.choice(TEMPORARY_PASSWORD_ALPHABET) for _ in range(TEMPORARY_PASSWORD_LENGTH))
+        if any(c.isalpha() for c in password) and any(c.isdigit() for c in password):
+            return password
 
 
 class InvalidRefreshToken(Exception):
@@ -239,6 +257,37 @@ class AuthService:
         await self.db.refresh(user)
         return user
 
+    async def set_temporary_password(self, admin: User, user_id: uuid.UUID) -> Optional[tuple[User, str]]:
+        """Gera uma senha temporária para a conta e obriga a troca no próximo login (#99).
+
+        Devolve o usuário e a senha em texto, que só vai na resposta da rota: nunca para o log.
+        As sessões da conta e os links de redefinição pendentes deixam de valer.
+        """
+        user = await self.get_user_by_id(user_id)
+        if user is None:
+            return None
+        if user.id == admin.id:
+            raise TemporaryPasswordRefused("Você não pode gerar uma senha temporária para a sua própria conta.")
+        if not user.is_active:
+            raise TemporaryPasswordRefused("Ative a conta antes de gerar uma senha temporária.")
+
+        password = generate_temporary_password()
+        user.hashed_password = security.get_password_hash(password)
+        user.must_change_password = True
+        await self.revoke_user_sessions(user.id)
+        await self._retire_reset_tokens(user.id)
+        await self.db.commit()
+        await self.db.refresh(user)
+        return user, password
+
+    async def _retire_reset_tokens(self, user_id: uuid.UUID) -> None:
+        """Os links de redefinição de senha ainda não usados deixam de valer (não faz commit)."""
+        await self.db.execute(
+            update(PasswordResetToken)
+            .where(PasswordResetToken.user_id == user_id, PasswordResetToken.is_used.is_(False))
+            .values(is_used=True)
+        )
+
     async def authenticate_user(self, email: str, password: str) -> Optional[User]:
         """Verifica credenciais e retorna o usuário se forem válidas."""
         user = await self.get_user_by_email(email)
@@ -258,11 +307,7 @@ class AuthService:
         if not user:
             return None
 
-        await self.db.execute(
-            update(PasswordResetToken)
-            .where(PasswordResetToken.user_id == user.id, PasswordResetToken.is_used.is_(False))
-            .values(is_used=True)
-        )
+        await self._retire_reset_tokens(user.id)
 
         token_str = str(uuid.uuid4())
         expire_at = datetime.now(timezone.utc) + timedelta(hours=1)
@@ -340,11 +385,7 @@ class AuthService:
         # A revogação filtra por user_id: o cookie de outra pessoa não preserva nenhuma sessão.
         keep = current.family_id if current is not None else None
         await self.revoke_user_sessions(user.id, except_family=keep)
-        await self.db.execute(
-            update(PasswordResetToken)
-            .where(PasswordResetToken.user_id == user.id, PasswordResetToken.is_used == False)  # noqa: E712
-            .values(is_used=True)
-        )
+        await self._retire_reset_tokens(user.id)
         await self.db.commit()
 
     # ── sessões (refresh tokens) ─────────────────────────

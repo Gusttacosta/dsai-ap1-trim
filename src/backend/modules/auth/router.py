@@ -28,6 +28,7 @@ from src.backend.modules.auth.schemas import (
     ResendVerificationRequest,
     RoleUpdateRequest,
     StatusUpdateRequest,
+    TemporaryPasswordResponse,
     UserListResponse,
 )
 from src.backend.modules.auth.rate_limit import login_limiter
@@ -36,6 +37,7 @@ from src.backend.modules.auth.service import (
     InvalidRefreshToken,
     IssuedTokens,
     SamePassword,
+    TemporaryPasswordRefused,
     WrongCurrentPassword,
 )
 
@@ -340,3 +342,28 @@ async def update_user_status(
     if user is None:
         raise HTTPException(status_code=404, detail=USER_NOT_FOUND)
     return user
+
+
+@router.post(
+    "/users/{user_id}/temporary-password",
+    response_model=TemporaryPasswordResponse,
+    summary="Gera uma senha temporária (admin)",
+)
+async def create_temporary_password(
+    user_id: uuid.UUID, response: Response,
+    db: AsyncSession = Depends(get_db), admin: User = Depends(get_current_admin),
+):
+    """A senha aparece só nesta resposta, e o usuário precisa trocá-la ao entrar (#99)."""
+    try:
+        result = await AuthService(db).set_temporary_password(admin, user_id)
+    except TemporaryPasswordRefused as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    if result is None:
+        raise HTTPException(status_code=404, detail=USER_NOT_FOUND)
+    # Nem o navegador nem um proxy guardam a resposta com a senha.
+    response.headers["Cache-Control"] = "no-store"
+    _, password = result
+    return TemporaryPasswordResponse(
+        temporary_password=password,
+        message="Senha temporária gerada. Ela não será mostrada de novo.",
+    )
