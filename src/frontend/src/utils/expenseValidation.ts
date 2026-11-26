@@ -1,4 +1,5 @@
 import { parsePrice } from './serviceValidation';
+import { fitsTrimmed as fits } from './textValidation';
 
 // Validação e conversão dos campos de despesa e de categoria do painel, com as regras do
 // backend (src/backend/modules/expenses/schemas.py; SPEC/2026-11-26-painel-despesas.md).
@@ -11,12 +12,6 @@ export const DESCRIPTION_ERROR = `Descrição deve ter entre 1 e ${DESCRIPTION_M
 export const AMOUNT_ERROR = 'Valor deve ser maior que 0 e até 99.999.999,99, com até 2 casas decimais';
 export const DATE_ERROR = 'Informe a data do pagamento';
 export const CATEGORY_NAME_ERROR = `Nome da categoria deve ter entre 1 e ${CATEGORY_NAME_MAX} caracteres`;
-
-/** Texto com 1 a `max` caracteres, sem contar os espaços das pontas (o backend apara). */
-const fits = (text: string, max: number) => {
-  const length = text.trim().length;
-  return length >= 1 && length <= max;
-};
 
 export function validateDescription(text: string): string | null {
   return fits(text, DESCRIPTION_MAX) ? null : DESCRIPTION_ERROR;
