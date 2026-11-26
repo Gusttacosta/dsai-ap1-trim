@@ -14,6 +14,7 @@ import AdminUsers from './AdminUsers';
 import AdminBarbers from './AdminBarbers';
 import AdminGallery from './AdminGallery';
 import AdminTrimClub from './AdminTrimClub';
+import AdminLoyalty from './AdminLoyalty';
 import Account from './Account';
 
 const Overview = ({ user }: { user: any }) => {
@@ -179,6 +180,7 @@ const Dashboard = () => {
             <Link to="/admin/notificacoes" className={getNavClass('/admin/notificacoes')}>Notificações</Link>
             <Link to="/admin/usuarios" className={getNavClass('/admin/usuarios')}>Usuários</Link>
             <Link to="/admin/trim-club" className={getNavClass('/admin/trim-club')}>Trim Club</Link>
+            <Link to="/admin/fidelidade" className={getNavClass('/admin/fidelidade')}>Fidelidade</Link>
           </>
         )}
         {sendsPhotos && <Link to="/admin/galeria" className={getNavClass('/admin/galeria')}>Galeria</Link>}
@@ -203,6 +205,7 @@ const Dashboard = () => {
               <Route path="/notificacoes" element={<AdminNotifications />} />
               <Route path="/usuarios" element={<AdminUsers currentUserId={user.id} />} />
               <Route path="/trim-club" element={<AdminTrimClub />} />
+              <Route path="/fidelidade" element={<AdminLoyalty />} />
             </>
           )}
         </Routes>

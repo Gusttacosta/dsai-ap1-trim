@@ -38,14 +38,15 @@ afterEach(cleanup);
 
 const requested = (url: string) => mockedGet.mock.calls.some(([called]) => called === url);
 
-// SPEC/2026-11-26-painel-barbeiros.md, SPEC/2026-11-26-painel-despesas.md e
-// SPEC/2026-11-26-painel-trim-club.md: as abas "Barbeiros", "Despesas" e "Trim Club" seguem a
-// mesma regra.
+// SPEC/2026-11-26-painel-barbeiros.md, SPEC/2026-11-26-painel-despesas.md,
+// SPEC/2026-11-26-painel-trim-club.md e SPEC/2026-11-26-painel-fidelidade.md: as abas
+// "Barbeiros", "Despesas", "Trim Club" e "Fidelidade" seguem a mesma regra.
 describe.each([
   ['Usuários', '👥 Usuários', '/admin/usuarios', '/auth/users'],
   ['Barbeiros', '💈 Barbeiros', '/admin/barbeiros', '/barbers/admin'],
   ['Despesas', '💸 Despesas', '/admin/despesas', '/expenses'],
   ['Trim Club', '👑 Trim Club', '/admin/trim-club', '/subscriptions/users'],
+  ['Fidelidade', '🎁 Fidelidade', '/admin/fidelidade', '/loyalty/wallets'],
 ])('Dashboard: aba %s', (link, heading, path, apiUrl) => {
   it(`o admin vê o item no menu e a tela em ${path}`, async () => {
     renderAt(path, me('admin'));
