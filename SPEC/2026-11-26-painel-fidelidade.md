@@ -81,7 +81,8 @@ sabe por que o saldo mudou.
 
 ### Resgates
 
-- Tabela com a data e a hora (`26/11/2026 14:30`), o cliente (nome da lista de carteiras, ou
+- Tabela com a data e a hora no fuso da barbearia (`qui., 26/11/2026 às 14:30`, como em Meus
+  agendamentos), o cliente (nome da lista de carteiras, ou
   "Cliente não encontrado"), o prêmio e os pontos gastos, na ordem do backend. Vazio:
   "Nenhum resgate ainda.". Só de leitura.
 
@@ -93,6 +94,8 @@ sabe por que o saldo mudou.
 - A confirmação do ajuste é do `AdminForm` (uma pergunta opcional antes de salvar), para outros
   formulários usarem; sem a pergunta, ele continua salvando direto.
 - O número inteiro de pontos (custo e ajuste) usa a mesma validação.
+- A linha de prêmio e a de plano do Trim Club são iguais (nome com descrição, valores, "Editar" e
+  a ação confirmada): viram um componente de linha de catálogo usado pelas duas.
 
 ## Critérios de aceitação
 
