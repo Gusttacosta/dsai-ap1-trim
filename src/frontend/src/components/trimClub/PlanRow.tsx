@@ -1,9 +1,7 @@
-import shared from '../../pages/AdminShared.module.css';
-import ConfirmButton from '../ConfirmButton';
+import CatalogRow from '../CatalogRow';
 import type { SubscriptionPlan } from '../../hooks/useTrimClub';
 import { formatPrice } from '../../utils/serviceValidation';
 import { planBenefitsWithDiscount } from '../../utils/trimClub';
-import styles from '../services/Services.module.css';
 
 // Uma linha da tabela de planos do painel (SPEC/2026-11-26-painel-trim-club.md). "Excluir" pede
 // confirmação na própria linha; o backend só desativa o plano.
@@ -21,21 +19,18 @@ type Props = {
 const PlanRow = ({ plan, busy, onEdit, onDelete }: Props) => {
   const benefits = planBenefitsWithDiscount(plan);
   return (
-    <tr aria-label={plan.name}>
-      <td style={{ color: '#fff', fontWeight: 500 }}>
-        {plan.name}
-        {plan.description && <span className={styles.description}>{plan.description}</span>}
-      </td>
+    <CatalogRow
+      name={plan.name}
+      description={plan.description}
+      actionLabel="Excluir"
+      question={DELETE_PLAN_QUESTION}
+      busy={busy}
+      onEdit={() => onEdit(plan)}
+      onConfirm={() => onDelete(plan)}
+    >
       <td>{formatPrice(plan.monthly_price)}/mês</td>
       <td>{benefits.length ? benefits.join(' · ') : 'Sem benefícios inclusos'}</td>
-      <td>
-        <ConfirmButton label="Excluir" question={DELETE_PLAN_QUESTION} onConfirm={() => onDelete(plan)} busy={busy}>
-          <button className={shared.btnIcon} onClick={() => onEdit(plan)} disabled={busy}>
-            Editar
-          </button>
-        </ConfirmButton>
-      </td>
-    </tr>
+    </CatalogRow>
   );
 };
 
