@@ -26,6 +26,8 @@ describe('LoadState', () => {
     renderState('error', reload);
 
     expect(screen.getByRole('alert').textContent).toBe('Falhou.');
+    // Dentro de um formulário, o botão não pode enviar o formulário.
+    expect(screen.getByRole('button', { name: 'Tentar de novo' }).getAttribute('type')).toBe('button');
     fireEvent.click(screen.getByRole('button', { name: 'Tentar de novo' }));
     expect(reload).toHaveBeenCalledOnce();
     expect(screen.queryByText('conteúdo')).toBeNull();

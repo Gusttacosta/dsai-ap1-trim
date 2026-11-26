@@ -30,4 +30,10 @@ describe('UserFilters', () => {
     fireEvent.change(screen.getByLabelText('Perfil'), { target: { value: '' } });
     expect(onRoleChange).toHaveBeenLastCalledWith('');
   });
+
+  it('sem onRoleChange, não mostra o filtro de perfil', () => {
+    render(<UserFilters onSearch={vi.fn()} />);
+    expect(screen.queryByLabelText('Perfil')).toBeNull();
+    expect(screen.getByLabelText('Buscar por nome ou e-mail')).toBeTruthy();
+  });
 });

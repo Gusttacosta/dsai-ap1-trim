@@ -1,4 +1,5 @@
 import shared from '../../pages/AdminShared.module.css';
+import { StatusBadge } from '../AdminForm';
 import ConfirmButton from '../ConfirmButton';
 import type { AdminUser } from '../../hooks/useAdminUsers';
 import { ROLE_LABELS, ROLES, type UserRole } from '../../utils/roles';
@@ -63,9 +64,7 @@ const UserRow = ({ user, isSelf, busy, onChangeRole, onSetActive, onGeneratePass
       )}
     </td>
     <td>
-      <span className={`${styles.badge} ${user.is_active ? styles.badgeActive : styles.badgeInactive}`}>
-        {user.is_active ? 'Ativo' : 'Desativado'}
-      </span>
+      <StatusBadge active={user.is_active} />
       {user.must_change_password && <span className={styles.description}>Troca de senha pendente</span>}
     </td>
     <td>
