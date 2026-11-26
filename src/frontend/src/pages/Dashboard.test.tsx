@@ -63,6 +63,30 @@ describe.each([
   });
 });
 
+// SPEC/2026-11-26-painel-galeria.md: a aba "Galeria" é do admin e do barbeiro, que enviam fotos;
+// a moderação (/gallery/pending) é só do admin.
+describe('Dashboard: aba Galeria', () => {
+  it.each([
+    ['admin', true],
+    ['barber', false],
+  ])('o %s vê o item no menu e a tela em /admin/galeria', async (role, moderates) => {
+    renderAt('/admin/galeria', me(role));
+
+    expect(await screen.findByRole('link', { name: 'Galeria' })).toBeTruthy();
+    expect(await screen.findByRole('heading', { name: '📸 Galeria' })).toBeTruthy();
+    expect(requested('/gallery/pending')).toBe(moderates);
+  });
+
+  it('o cliente não vê o item nem a tela', async () => {
+    renderAt('/admin/galeria', me('client'));
+
+    expect(await screen.findByRole('link', { name: 'Minha conta' })).toBeTruthy();
+    expect(screen.queryByRole('link', { name: 'Galeria' })).toBeNull();
+    expect(screen.queryByRole('heading', { name: '📸 Galeria' })).toBeNull();
+    expect(requested('/gallery/tags')).toBe(false);
+  });
+});
+
 describe('Dashboard: senha temporária', () => {
   it('com a troca pendente, manda para a troca de senha', async () => {
     renderAt('/admin', me('admin', { must_change_password: true }));
