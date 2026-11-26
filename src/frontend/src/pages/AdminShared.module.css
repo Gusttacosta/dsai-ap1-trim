@@ -144,3 +144,27 @@
 .table input[type="time"]:disabled {
   opacity: 0.4;
 }
+
+/* Estoque no painel (SPEC/2026-11-26-painel-estoque.md): o aviso na linha e o resumo no topo. */
+.stockWarning {
+  margin-left: 0.5rem;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--color-danger);
+}
+
+.stockAlert {
+  margin: 0 0 1.5rem;
+  padding: 0.75rem 1rem;
+  border: 1px solid rgba(239, 68, 68, 0.4);
+  border-radius: var(--radius-md);
+  background: rgba(239, 68, 68, 0.08);
+  color: var(--color-danger);
+}
+
+.sectionHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin: 2rem 0 1rem;
+}
