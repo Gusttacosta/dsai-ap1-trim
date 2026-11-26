@@ -4,7 +4,8 @@ import styles from './services/Services.module.css';
 
 // Moldura dos formulários do painel do admin: título, erro, "Nada mudou.", "Salvando..." e
 // "Cancelar". Usada pelos formulários de serviço (SPEC/2026-11-23-painel-servicos.md) e de
-// barbeiro (SPEC/2026-11-26-painel-barbeiros.md). Quem usa cuida só dos campos.
+// barbeiro (SPEC/2026-11-26-painel-barbeiros.md). Quem usa cuida só dos campos. Com `confirm`, pede
+// confirmação antes de gravar (o ajuste de pontos, SPEC/2026-11-26-painel-fidelidade.md).
 
 type Props = {
   title: string;
@@ -20,13 +21,20 @@ type Props = {
    */
   save: () => Promise<boolean>;
   onCancel: () => void;
+  /**
+   * Pergunta mostrada, com os campos já válidos, antes de gravar: "Confirmar" grava e "Voltar"
+   * (ou mudar um campo) volta ao formulário. Sem ela, grava direto.
+   */
+  confirm?: () => string;
   children: ReactNode;
 };
 
-const AdminForm = ({ title, submitLabel, errorFallback, validate, save, onCancel, children }: Props) => {
+const AdminForm = ({ title, submitLabel, errorFallback, validate, save, onCancel, confirm, children }: Props) => {
   const [error, setError] = useState('');
   const [info, setInfo] = useState('');
   const [saving, setSaving] = useState(false);
+  // A pergunta de `confirm` enquanto espera a resposta; null fora da confirmação.
+  const [question, setQuestion] = useState<string | null>(null);
 
   const handleSubmit = async (event: React.FormEvent) => {
     event.preventDefault();
@@ -38,7 +46,12 @@ const AdminForm = ({ title, submitLabel, errorFallback, validate, save, onCancel
       setError(problem);
       return;
     }
+    if (confirm && question === null) {
+      setQuestion(confirm());
+      return;
+    }
 
+    setQuestion(null);
     setSaving(true);
     try {
       if (!(await save())) {
@@ -52,20 +65,27 @@ const AdminForm = ({ title, submitLabel, errorFallback, validate, save, onCancel
   };
 
   return (
-    <form className={styles.form} onSubmit={handleSubmit} noValidate aria-label={title}>
+    // Mudar um campo durante a confirmação volta ao formulário: a pergunta valia para os antigos.
+    <form className={styles.form} onSubmit={handleSubmit} onChange={() => setQuestion(null)} noValidate aria-label={title}>
       <h3>{title}</h3>
 
       {children}
 
       {error && <p className={styles.error} role="alert">{error}</p>}
       {info && <p className={styles.info} role="status">{info}</p>}
+      {question && <p className={styles.info} role="status">{question}</p>}
 
       <div className={styles.actions}>
-        <button type="button" className={styles.secondary} onClick={onCancel} disabled={saving}>
-          Cancelar
+        <button
+          type="button"
+          className={styles.secondary}
+          onClick={question ? () => setQuestion(null) : onCancel}
+          disabled={saving}
+        >
+          {question ? 'Voltar' : 'Cancelar'}
         </button>
         <button type="submit" className={styles.primary} disabled={saving}>
-          {saving ? 'Salvando...' : submitLabel}
+          {saving ? 'Salvando...' : question ? 'Confirmar' : submitLabel}
         </button>
       </div>
     </form>

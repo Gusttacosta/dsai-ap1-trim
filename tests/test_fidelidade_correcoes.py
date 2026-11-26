@@ -40,7 +40,7 @@ async def create_reward(client, admin, name="Pomada", cost=100):
 
 
 async def points(client, admin, user_id, amount, action="add"):
-    return await client.post(f"{URL}/wallet/{user_id}/{action}", params={"points": amount}, headers=auth(admin))
+    return await client.post(f"{URL}/wallet/{user_id}/{action}", params={"points": amount, "reason": "Correção"}, headers=auth(admin))
 
 
 async def balance(client, user):

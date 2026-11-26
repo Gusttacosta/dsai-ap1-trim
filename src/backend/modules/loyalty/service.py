@@ -4,6 +4,7 @@ Trim — Loyalty Service
 Regras de negócio de acúmulo e resgate de pontos.
 SPEC/2026-11-25-fidelidade-correcoes.md (#73): usuário desconhecido, nomes de prêmio, trava no
 resgate e operações do admin.
+SPEC/2026-11-26-painel-fidelidade.md (#110): o motivo do ajuste manual vai na notificação.
 """
 
 import uuid
@@ -98,8 +99,8 @@ class LoyaltyService:
         if await self.db.get(User, user_id) is None:
             raise NotFound("Usuário não encontrado.")
 
-    async def add_points(self, user_id: uuid.UUID, points: int) -> LoyaltyWallet:
-        """Adiciona pontos à carteira de um usuário."""
+    async def add_points(self, user_id: uuid.UUID, points: int, reason: str) -> LoyaltyWallet:
+        """(Admin) Adiciona pontos à carteira de um usuário, avisando o motivo (#110)."""
         if points <= 0:
             raise ValueError("A quantidade de pontos deve ser maior que zero.")
         await self._require_user(user_id)
@@ -109,15 +110,16 @@ class LoyaltyService:
         wallet.lifetime_points += points
         await notify(
             self.db, user_id, "Você ganhou pontos",
-            f"+{points} pts da barbearia. Saldo: {wallet.balance} pts.", NotificationType.LOYALTY_UPDATE,
+            f"+{points} pts da barbearia: {reason}. Saldo: {wallet.balance} pts.", NotificationType.LOYALTY_UPDATE,
         )
 
         await self.db.commit()
         await self.db.refresh(wallet)
         return wallet
 
-    async def remove_points(self, user_id: uuid.UUID, points: int) -> LoyaltyWallet:
-        """(Admin) Estorna ou corrige pontos. Não mexe no total acumulado (#73)."""
+    async def remove_points(self, user_id: uuid.UUID, points: int, reason: str) -> LoyaltyWallet:
+        """(Admin) Estorna ou corrige pontos, avisando o motivo (#110). Não mexe no total
+        acumulado (#73)."""
         if points <= 0:
             raise ValueError("A quantidade de pontos deve ser maior que zero.")
         await self._require_user(user_id)
@@ -128,6 +130,10 @@ class LoyaltyService:
             await self.db.rollback()
             raise ValueError(f"Saldo insuficiente para retirar {points} pts. O cliente possui {balance} pts.")
         wallet.balance -= points
+        await notify(
+            self.db, user_id, "Pontos retirados",
+            f"-{points} pts: {reason}. Saldo: {wallet.balance} pts.", NotificationType.LOYALTY_UPDATE,
+        )
 
         await self.db.commit()
         await self.db.refresh(wallet)

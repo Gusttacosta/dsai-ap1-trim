@@ -6,8 +6,13 @@ Schemas Pydantic para validação do programa de fidelidade.
 
 import uuid
 from datetime import datetime
+from typing import Annotated
 
-from pydantic import BaseModel, ConfigDict, Field, field_validator
+from pydantic import BaseModel, ConfigDict, Field, StringConstraints, field_validator
+
+
+# Motivo do ajuste manual de pontos, na query do /add e do /remove (#110): aparado, de 3 a 200.
+AdjustmentReason = Annotated[str, StringConstraints(strip_whitespace=True, min_length=3, max_length=200)]
 
 
 class LoyaltyWalletResponse(BaseModel):

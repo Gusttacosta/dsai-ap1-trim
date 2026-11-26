@@ -48,7 +48,7 @@ async def create_reward(client, admin, name="Corte grátis", cost=100, **extra):
 
 
 async def give(client, admin, user, points):
-    return await client.post(f"{URL}/wallet/{user.id}/add", params={"points": points}, headers=auth(admin))
+    return await client.post(f"{URL}/wallet/{user.id}/add", params={"points": points, "reason": "Cortesia"}, headers=auth(admin))
 
 
 async def wallet(client, user):
@@ -119,7 +119,7 @@ async def test_zero_or_negative_points_get_400(client, admin, member, sessionmak
     assert (saved.balance, saved.lifetime_points) == (20, 20)
 
 
-@pytest.mark.parametrize("params", [{}, {"points": "dez"}, {"points": 1.5}])
+@pytest.mark.parametrize("params", [{"reason": "Cortesia"}, {"points": "dez", "reason": "Cortesia"}, {"points": 1.5, "reason": "Cortesia"}])
 async def test_invalid_points_get_422(client, admin, member, params):
     response = await client.post(f"{URL}/wallet/{member.id}/add", params=params, headers=auth(admin))
     assert response.status_code == 422
@@ -308,7 +308,7 @@ async def test_admin_routes_are_forbidden_to_others(client, admin, member, sessi
     responses = [
         await client.post(f"{URL}/rewards", json={"name": "Novo", "points_cost": 1}, headers=headers),
         await client.put(f"{URL}/rewards/{reward['id']}", json={"points_cost": 1}, headers=headers),
-        await client.post(f"{URL}/wallet/{member.id}/add", params={"points": 1000}, headers=headers),
+        await client.post(f"{URL}/wallet/{member.id}/add", params={"points": 1000, "reason": "Cortesia"}, headers=headers),
         await client.get(f"{URL}/redemptions", headers=headers),
     ]
     assert [r.status_code for r in responses] == [403] * 4

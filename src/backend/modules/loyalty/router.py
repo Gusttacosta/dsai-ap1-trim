@@ -5,14 +5,16 @@ Endpoints de manipulação de carteira e resgate de pontos.
 """
 
 import uuid
+from typing import Annotated
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.backend.database import get_db
 from src.backend.modules.auth.dependencies import get_current_admin, get_current_user
 from src.backend.modules.auth.models import User
 from src.backend.modules.loyalty.schemas import (
+    AdjustmentReason,
     LoyaltyWalletAdminResponse,
     LoyaltyWalletResponse,
     RewardCreateRequest,
@@ -23,6 +25,9 @@ from src.backend.modules.loyalty.schemas import (
 from src.backend.modules.loyalty.service import LoyaltyService, NotFound
 
 router = APIRouter()
+
+# O motivo do ajuste manual vai na notificação do cliente (#110).
+ReasonQuery = Annotated[AdjustmentReason, Query(description="Motivo, mostrado ao cliente na notificação")]
 
 # ── Endpoints Autenticados (Clientes) ────────────────────
 
@@ -95,13 +100,14 @@ async def update_reward(
 async def add_points_manually(
     target_user_id: uuid.UUID,
     points: int,
+    reason: ReasonQuery,
     db: AsyncSession = Depends(get_db),
     admin: User = Depends(get_current_admin)
 ):
-    """(Admin) Concede pontos manualmente a um cliente."""
+    """(Admin) Concede pontos manualmente a um cliente, com o motivo (#110)."""
     service = LoyaltyService(db)
     try:
-        return await service.add_points(target_user_id, points)
+        return await service.add_points(target_user_id, points, reason)
     except NotFound as e:
         raise HTTPException(status_code=404, detail=str(e))
     except ValueError as e:
@@ -112,13 +118,14 @@ async def add_points_manually(
 async def remove_points_manually(
     target_user_id: uuid.UUID,
     points: int,
+    reason: ReasonQuery,
     db: AsyncSession = Depends(get_db),
     admin: User = Depends(get_current_admin)
 ):
-    """(Admin) Retira pontos (estorno ou correção). O total acumulado não muda."""
+    """(Admin) Retira pontos (estorno ou correção), com o motivo (#110). O total acumulado não muda."""
     service = LoyaltyService(db)
     try:
-        return await service.remove_points(target_user_id, points)
+        return await service.remove_points(target_user_id, points, reason)
     except NotFound as e:
         raise HTTPException(status_code=404, detail=str(e))
     except ValueError as e:
