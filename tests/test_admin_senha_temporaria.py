@@ -157,3 +157,76 @@ async def test_inactive_account_is_refused(client, sessionmaker, admin):
         stored = await db.get(User, ana.id)
     assert stored.must_change_password is False
     assert security.verify_password(PASSWORD, stored.hashed_password)
+
+
+# ── troca obrigatória ───────────────────────────────────
+
+PENDING = "Troque a senha temporária para continuar."
+NEW_PASSWORD = "senhaNova456"
+
+
+async def with_temporary_password(client, sessionmaker, admin):
+    """Ana entra com a senha temporária. Devolve o cabeçalho do access token e a senha."""
+    ana = await client_with_password(sessionmaker)
+    temporary = (await generate(client, ana.id, admin)).json()["temporary_password"]
+    token = (await login(client, ana.email, temporary)).json()["access_token"]
+    return {"Authorization": f"Bearer {token}"}, temporary
+
+
+@pytest.mark.asyncio
+@needs_db
+async def test_pending_change_allows_only_me_and_password_change(client, sessionmaker, admin):
+    headers, _ = await with_temporary_password(client, sessionmaker, admin)
+
+    me = await client.get(f"{URL}/me", headers=headers)
+    assert me.status_code == 200
+    assert me.json()["must_change_password"] is True
+    for method, path, body in [
+        ("GET", "/api/appointments/me", None),
+        ("GET", "/api/notifications", None),
+        ("PUT", f"{URL}/me", {"full_name": "Outra Ana"}),
+    ]:
+        response = await client.request(method, path, json=body, headers=headers)
+        assert (response.status_code, response.json()["detail"]) == (403, PENDING), path
+
+
+@pytest.mark.asyncio
+@needs_db
+async def test_changing_the_password_lifts_the_block(client, sessionmaker, admin):
+    headers, temporary = await with_temporary_password(client, sessionmaker, admin)
+
+    response = await client.put(
+        f"{URL}/me/password", json={"current_password": temporary, "new_password": NEW_PASSWORD}, headers=headers
+    )
+
+    assert response.status_code == 200, response.text
+    assert (await client.get(f"{URL}/me", headers=headers)).json()["must_change_password"] is False
+    assert (await client.get("/api/appointments/me", headers=headers)).status_code == 200
+    assert (await login(client, "ana@teste.com", NEW_PASSWORD)).status_code == 200
+
+
+@pytest.mark.asyncio
+@needs_db
+async def test_the_temporary_password_cannot_be_kept(client, sessionmaker, admin):
+    headers, temporary = await with_temporary_password(client, sessionmaker, admin)
+
+    response = await client.put(
+        f"{URL}/me/password", json={"current_password": temporary, "new_password": temporary}, headers=headers
+    )
+
+    assert response.status_code == 400
+    assert (await client.get("/api/appointments/me", headers=headers)).status_code == 403
+
+
+@pytest.mark.asyncio
+@needs_db
+async def test_reset_link_also_lifts_the_block(client, sessionmaker, admin):
+    headers, _ = await with_temporary_password(client, sessionmaker, admin)
+    assert (await client.post(f"{URL}/forgot-password", json={"email": "ana@teste.com"})).status_code == 200
+    async with sessionmaker() as db:
+        token = (await db.execute(select(PasswordResetToken.token).where(PasswordResetToken.is_used.is_(False)))).scalar_one()
+
+    response = await client.post(f"{URL}/reset-password", json={"token": token, "new_password": NEW_PASSWORD})
+
+    assert response.status_code == 200
+    assert (await client.get("/api/appointments/me", headers=headers)).status_code == 200

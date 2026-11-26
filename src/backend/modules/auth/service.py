@@ -346,7 +346,10 @@ class AuthService:
         
         # Atualiza senha do usuário
         hashed_password = security.get_password_hash(new_password)
-        stmt_update_user = update(User).where(User.id == token_obj.user_id).values(hashed_password=hashed_password)
+        # Quem escolheu a senha pelo link não precisa trocar uma senha temporária (#99).
+        stmt_update_user = update(User).where(User.id == token_obj.user_id).values(
+            hashed_password=hashed_password, must_change_password=False
+        )
         await self.db.execute(stmt_update_user)
 
         # Quem redefiniu a senha pode estar tirando alguém da conta: encerra todas as sessões.
@@ -381,6 +384,7 @@ class AuthService:
             raise SamePassword()
 
         user.hashed_password = security.get_password_hash(new_password)
+        user.must_change_password = False
         current = await self._refresh_row(refresh_token)
         # A revogação filtra por user_id: o cookie de outra pessoa não preserva nenhuma sessão.
         keep = current.family_id if current is not None else None
