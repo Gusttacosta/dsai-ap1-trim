@@ -10,6 +10,7 @@ import AdminServices from './AdminServices';
 import AdminFinance from './AdminFinance';
 import AdminNotifications from './AdminNotifications';
 import AdminUsers from './AdminUsers';
+import AdminBarbers from './AdminBarbers';
 import Account from './Account';
 
 const Overview = ({ user }: { user: any }) => {
@@ -166,6 +167,7 @@ const Dashboard = () => {
           <>
             <Link to="/admin/loja" className={getNavClass('/admin/loja')}>Loja & Estoque</Link>
             <Link to="/admin/servicos" className={getNavClass('/admin/servicos')}>Serviços</Link>
+            <Link to="/admin/barbeiros" className={getNavClass('/admin/barbeiros')}>Barbeiros</Link>
             <Link to="/admin/financeiro" className={getNavClass('/admin/financeiro')}>Financeiro</Link>
             <Link to="/admin/notificacoes" className={getNavClass('/admin/notificacoes')}>Notificações</Link>
             <Link to="/admin/usuarios" className={getNavClass('/admin/usuarios')}>Usuários</Link>
@@ -185,6 +187,7 @@ const Dashboard = () => {
             <>
               <Route path="/loja" element={<AdminStore />} />
               <Route path="/servicos" element={<AdminServices />} />
+              <Route path="/barbeiros" element={<AdminBarbers />} />
               <Route path="/financeiro" element={<AdminFinance />} />
               <Route path="/notificacoes" element={<AdminNotifications />} />
               <Route path="/usuarios" element={<AdminUsers currentUserId={user.id} />} />

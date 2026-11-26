@@ -36,22 +36,28 @@ function renderAt(path: string, user: object) {
 beforeEach(() => mockedGet.mockReset());
 afterEach(cleanup);
 
-describe('Dashboard: aba Usuários', () => {
-  it('o admin vê o item no menu e a tela em /admin/usuarios', async () => {
-    renderAt('/admin/usuarios', me('admin'));
+const requested = (url: string) => mockedGet.mock.calls.some(([called]) => called === url);
 
-    expect(await screen.findByRole('link', { name: 'Usuários' })).toBeTruthy();
-    expect(await screen.findByRole('heading', { name: '👥 Usuários' })).toBeTruthy();
-    expect(mockedGet).toHaveBeenCalledWith('/auth/users', expect.anything());
+// SPEC/2026-11-26-painel-barbeiros.md: a aba "Barbeiros" segue a mesma regra.
+describe.each([
+  ['Usuários', '👥 Usuários', '/admin/usuarios', '/auth/users'],
+  ['Barbeiros', '💈 Barbeiros', '/admin/barbeiros', '/barbers/admin'],
+])('Dashboard: aba %s', (link, heading, path, apiUrl) => {
+  it(`o admin vê o item no menu e a tela em ${path}`, async () => {
+    renderAt(path, me('admin'));
+
+    expect(await screen.findByRole('link', { name: link })).toBeTruthy();
+    expect(await screen.findByRole('heading', { name: heading })).toBeTruthy();
+    expect(requested(apiUrl)).toBe(true);
   });
 
   it('o barbeiro não vê o item nem a tela', async () => {
-    renderAt('/admin/usuarios', me('barber'));
+    renderAt(path, me('barber'));
 
     expect(await screen.findByRole('link', { name: 'Minha conta' })).toBeTruthy();
-    expect(screen.queryByRole('link', { name: 'Usuários' })).toBeNull();
-    expect(screen.queryByRole('heading', { name: '👥 Usuários' })).toBeNull();
-    expect(mockedGet).not.toHaveBeenCalledWith('/auth/users', expect.anything());
+    expect(screen.queryByRole('link', { name: link })).toBeNull();
+    expect(screen.queryByRole('heading', { name: heading })).toBeNull();
+    expect(requested(apiUrl)).toBe(false);
   });
 });
 
