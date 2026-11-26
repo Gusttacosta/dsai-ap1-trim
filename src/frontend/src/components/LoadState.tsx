@@ -22,7 +22,7 @@ const LoadState = ({ status, loadError, reload, loadingText, children }: Props) 
     return (
       <div>
         <p className={styles.error} role="alert">{loadError}</p>
-        <button className={shared.btnAction} onClick={reload}>Tentar de novo</button>
+        <button type="button" className={shared.btnAction} onClick={reload}>Tentar de novo</button>
       </div>
     );
   }
