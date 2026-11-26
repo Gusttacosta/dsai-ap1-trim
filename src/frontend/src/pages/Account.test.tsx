@@ -21,6 +21,16 @@ const USER = {
   email_verified: false,
 };
 
+const APPOINTMENT = {
+  id: 'a1',
+  barber_id: 'b1',
+  start_datetime: '2099-12-02T13:00:00Z',
+  end_datetime: '2099-12-02T13:30:00Z',
+  status: 'confirmed',
+  total_price: '40.00',
+  items: [{ id: 'i1', service_name: 'Corte', locked_price: '40.00', duration_minutes: 30 }],
+};
+
 function httpError(status: number): AxiosError {
   const config = { headers: {} } as InternalAxiosRequestConfig;
   const response = { status, data: {}, statusText: '', headers: {}, config } as AxiosResponse;
@@ -56,6 +66,28 @@ describe('Account', () => {
     expect(screen.getByText('Seu e-mail ainda não foi verificado.')).toBeTruthy();
     expect(screen.getByText('M')).toBeTruthy();
     expect(mocked.get).toHaveBeenCalledWith('/auth/me');
+  });
+
+  it('o cliente vê "Meus agendamentos", carregado do GET /appointments/me (SPEC/2026-11-25-meus-agendamentos.md)', async () => {
+    mocked.get.mockImplementation(async (url: string) => ({
+      data: url === '/auth/me' ? USER : url === '/appointments/me' ? [APPOINTMENT] : [],
+    }));
+
+    renderAccount();
+
+    expect(await screen.findByRole('heading', { name: 'Meus agendamentos' })).toBeTruthy();
+    expect(await screen.findByRole('listitem', { name: /Corte$/ })).toBeTruthy();
+    expect(mocked.get).toHaveBeenCalledWith('/appointments/me');
+  });
+
+  it.each(['barber', 'admin'])('%s não vê "Meus agendamentos" nem chama a rota', async (role) => {
+    mocked.get.mockResolvedValue({ data: { ...USER, role } });
+
+    renderAccount();
+
+    expect(await screen.findByRole('heading', { name: 'Minha conta' })).toBeTruthy();
+    expect(screen.queryByRole('heading', { name: 'Meus agendamentos' })).toBeNull();
+    expect(mocked.get).not.toHaveBeenCalledWith('/appointments/me');
   });
 
   it.each([401, 403])('sem sessão (%i), manda para o login', async (status) => {
