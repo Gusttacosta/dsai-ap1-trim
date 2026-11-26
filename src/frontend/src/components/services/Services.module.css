@@ -123,11 +123,6 @@
   color: var(--color-text-secondary);
 }
 
-.confirm {
-  color: #fff;
-  margin-right: 0.5rem;
-}
-
 @media (max-width: 640px) {
   .form {
     grid-template-columns: 1fr;

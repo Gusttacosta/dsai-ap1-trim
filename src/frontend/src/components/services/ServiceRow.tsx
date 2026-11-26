@@ -1,11 +1,11 @@
-import { useState } from 'react';
 import shared from '../../pages/AdminShared.module.css';
+import ConfirmButton from '../ConfirmButton';
 import type { AdminService } from '../../hooks/useAdminServices';
 import { formatPrice } from '../../utils/serviceValidation';
 import styles from './Services.module.css';
 
 // Uma linha da tabela de serviços do painel (SPEC/2026-11-23-painel-servicos.md).
-// "Desativar" pede confirmação na própria linha. "Reativar" não pede.
+// "Desativar" pede confirmação na própria linha (ConfirmButton). "Reativar" não pede.
 
 type Props = {
   service: AdminService;
@@ -17,44 +17,23 @@ type Props = {
 };
 
 const ServiceRow = ({ service, busy, onEdit, onDeactivate, onReactivate }: Props) => {
-  const [confirming, setConfirming] = useState(false);
-
-  const confirmDeactivation = () => {
-    setConfirming(false);
-    onDeactivate(service);
-  };
-
-  let actions;
-  if (confirming) {
-    actions = (
-      <>
-        <span className={styles.confirm}>Desativar este serviço?</span>
-        <button className={`${shared.btnIcon} ${shared.btnDanger}`} onClick={confirmDeactivation} disabled={busy}>
-          Confirmar
-        </button>
-        <button className={shared.btnIcon} onClick={() => setConfirming(false)} disabled={busy}>
-          Voltar
-        </button>
-      </>
-    );
-  } else {
-    actions = (
-      <>
-        <button className={shared.btnIcon} onClick={() => onEdit(service)} disabled={busy}>
-          Editar
-        </button>
-        {service.is_active ? (
-          <button className={`${shared.btnIcon} ${shared.btnDanger}`} onClick={() => setConfirming(true)} disabled={busy}>
-            Desativar
-          </button>
-        ) : (
-          <button className={shared.btnIcon} onClick={() => onReactivate(service)} disabled={busy}>
-            Reativar
-          </button>
-        )}
-      </>
-    );
-  }
+  const edit = (
+    <button className={shared.btnIcon} onClick={() => onEdit(service)} disabled={busy}>
+      Editar
+    </button>
+  );
+  const actions = service.is_active ? (
+    <ConfirmButton label="Desativar" question="Desativar este serviço?" onConfirm={() => onDeactivate(service)} busy={busy}>
+      {edit}
+    </ConfirmButton>
+  ) : (
+    <>
+      {edit}
+      <button className={shared.btnIcon} onClick={() => onReactivate(service)} disabled={busy}>
+        Reativar
+      </button>
+    </>
+  );
 
   return (
     <tr className={service.is_active ? undefined : styles.inactive} aria-label={service.name}>

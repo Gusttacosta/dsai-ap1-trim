@@ -75,3 +75,9 @@
   background: rgba(239, 68, 68, 0.2);
   color: var(--color-danger);
 }
+
+/* Pergunta do ConfirmButton, no lugar do botão. */
+.confirmQuestion {
+  color: #fff;
+  margin-right: 0.5rem;
+}
