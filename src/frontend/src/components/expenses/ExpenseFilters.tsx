@@ -34,7 +34,7 @@ const ExpenseFilters = ({ period, onPeriod, category, onCategory, categories }: 
       <input type="date" value={period.end} onChange={(e) => onPeriod({ ...period, end: e.target.value })} />
     </label>
     <label>
-      Categoria{' '}
+      Filtrar por categoria{' '}
       <select value={category} onChange={(e) => onCategory(e.target.value)}>
         <option value={ALL}>Todas</option>
         {categories.map((c) => (

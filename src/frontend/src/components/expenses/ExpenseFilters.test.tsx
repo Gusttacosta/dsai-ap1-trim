@@ -47,7 +47,7 @@ describe('ExpenseFilters', () => {
 
   it('a categoria lista "Todas", as categorias e "Sem categoria"', () => {
     const { onCategory } = renderFilters();
-    const select = screen.getByLabelText('Categoria') as HTMLSelectElement;
+    const select = screen.getByLabelText('Filtrar por categoria') as HTMLSelectElement;
 
     expect([...select.options].map((o) => o.text)).toEqual(['Todas', 'Aluguel', 'Luz', 'Sem categoria']);
 
