@@ -15,6 +15,8 @@ export type AccountUser = {
   avatar_url: string | null;
   role: UserRole;
   email_verified: boolean;
+  /** Senha temporária ainda não trocada (SPEC/2026-11-25-admin-usuarios.md). */
+  must_change_password?: boolean;
 };
 
 export type ProfileChanges = Partial<Pick<AccountUser, 'full_name' | 'phone' | 'avatar_url'>>;
