@@ -1,15 +1,15 @@
 import { useState } from 'react';
 import styles from './AdminShared.module.css';
+import LoadState, { ActionFeedback } from '../components/LoadState';
 import ServiceForm from '../components/services/ServiceForm';
 import ServiceRow from '../components/services/ServiceRow';
-import formStyles from '../components/services/Services.module.css';
 import {
   useAdminServices,
   type AdminService,
   type ServiceChanges,
   type ServiceInput,
 } from '../hooks/useAdminServices';
-import { apiErrorMessage } from '../utils/apiError';
+import { useRowAction } from '../hooks/useRowAction';
 
 // Gestão do catálogo pelo painel do admin (SPEC/2026-11-23-painel-servicos.md).
 
@@ -21,13 +21,10 @@ const AdminServices = () => {
     useAdminServices();
   const [editing, setEditing] = useState<Editing>(null);
   const [showInactive, setShowInactive] = useState(true);
-  const [busyId, setBusyId] = useState<string | null>(null);
-  const [message, setMessage] = useState('');
-  const [actionError, setActionError] = useState('');
+  const { busyId, message, actionError, run, clear, setMessage } = useRowAction();
 
   const open = (target: Editing) => {
-    setMessage('');
-    setActionError('');
+    clear();
     setEditing(target);
   };
 
@@ -42,34 +39,10 @@ const AdminServices = () => {
     setEditing(null);
   };
 
-  /** Ação de uma linha: desabilita a linha enquanto roda e mostra o resultado no topo. */
-  const runRowAction = async (service: AdminService, action: () => Promise<unknown>, done: string) => {
-    setMessage('');
-    setActionError('');
-    setBusyId(service.id);
-    try {
-      await action();
-      setMessage(done);
-    } catch (error) {
-      setActionError(apiErrorMessage(error, 'Não foi possível concluir a ação.'));
-    } finally {
-      setBusyId(null);
-    }
-  };
-
   const visible = showInactive ? services : services.filter((s) => s.is_active);
 
   let content;
-  if (status === 'loading') {
-    content = <p>Carregando serviços...</p>;
-  } else if (status === 'error') {
-    content = (
-      <div>
-        <p className={formStyles.error} role="alert">{loadError}</p>
-        <button className={styles.btnAction} onClick={reload}>Tentar de novo</button>
-      </div>
-    );
-  } else if (visible.length === 0) {
+  if (visible.length === 0) {
     content = <p>{services.length === 0 ? 'Nenhum serviço cadastrado.' : 'Nenhum serviço ativo.'}</p>;
   } else {
     content = (
@@ -90,8 +63,8 @@ const AdminServices = () => {
               service={service}
               busy={busyId === service.id}
               onEdit={open}
-              onDeactivate={(s) => runRowAction(s, () => deactivateService(s.id), 'Serviço desativado.')}
-              onReactivate={(s) => runRowAction(s, () => reactivateService(s.id), 'Serviço reativado.')}
+              onDeactivate={(s) => run(s.id, () => deactivateService(s.id), 'Serviço desativado.')}
+              onReactivate={(s) => run(s.id, () => reactivateService(s.id), 'Serviço reativado.')}
             />
           ))}
         </tbody>
@@ -118,8 +91,7 @@ const AdminServices = () => {
         />
       )}
 
-      {message && <p className={formStyles.info} role="status">{message}</p>}
-      {actionError && <p className={formStyles.error} role="alert">{actionError}</p>}
+      <ActionFeedback message={message} error={actionError} />
 
       {status === 'ready' && services.length > 0 && (
         <label style={{ display: 'block', margin: '0 0 1rem' }}>
@@ -128,7 +100,9 @@ const AdminServices = () => {
         </label>
       )}
 
-      {content}
+      <LoadState status={status} loadError={loadError} reload={reload} loadingText="Carregando serviços...">
+        {content}
+      </LoadState>
     </div>
   );
 };

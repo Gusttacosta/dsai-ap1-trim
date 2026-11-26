@@ -18,11 +18,16 @@ from src.backend.modules.auth.service import AuthService
 security_scheme = HTTPBearer(auto_error=False)
 
 
-async def get_current_user(
+PASSWORD_CHANGE_REQUIRED = "Troque a senha temporária para continuar."
+
+
+async def get_user_with_pending_password(
     token: HTTPAuthorizationCredentials | None = Depends(security_scheme),
     db: AsyncSession = Depends(get_db),
 ) -> User:
-    """Extrai, valida o JWT e retorna o usuário do banco."""
+    """Extrai, valida o JWT e retorna o usuário do banco, mesmo com a troca de senha pendente.
+
+    Só `GET /me` e `PUT /me/password` usam esta dependência direto (#99)."""
     if token is None or token.scheme.lower() != "bearer":
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Not authenticated")
     payload = security.decode_token(token.credentials)
@@ -69,6 +74,13 @@ async def get_current_user(
             detail="Usuário inativo.",
         )
 
+    return user
+
+
+async def get_current_user(user: User = Depends(get_user_with_pending_password)) -> User:
+    """Usuário logado. Com uma senha temporária ainda não trocada, a API responde 403 (#99)."""
+    if user.must_change_password:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=PASSWORD_CHANGE_REQUIRED)
     return user
 
 

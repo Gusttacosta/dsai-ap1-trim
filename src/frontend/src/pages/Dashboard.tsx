@@ -3,11 +3,13 @@ import { useNavigate, Routes, Route, Link, useLocation } from 'react-router-dom'
 import styles from './Dashboard.module.css';
 import api, { logout } from '../api';
 import { canFinish } from '../utils/appointmentStatus';
+import { CHANGE_PASSWORD_PATH } from '../utils/afterLogin';
 
 import AdminStore from './AdminStore';
 import AdminServices from './AdminServices';
 import AdminFinance from './AdminFinance';
 import AdminNotifications from './AdminNotifications';
+import AdminUsers from './AdminUsers';
 import Account from './Account';
 
 const Overview = ({ user }: { user: any }) => {
@@ -127,6 +129,11 @@ const Dashboard = () => {
     const fetchUser = async () => {
       try {
         const response = await api.get('/auth/me');
+        // Senha temporária pendente: o resto da API responde 403 até a troca (#99).
+        if (response.data.must_change_password) {
+          navigate(CHANGE_PASSWORD_PATH, { replace: true });
+          return;
+        }
         setUser(response.data);
       } catch (err) {
         localStorage.removeItem('token');
@@ -161,6 +168,7 @@ const Dashboard = () => {
             <Link to="/admin/servicos" className={getNavClass('/admin/servicos')}>Serviços</Link>
             <Link to="/admin/financeiro" className={getNavClass('/admin/financeiro')}>Financeiro</Link>
             <Link to="/admin/notificacoes" className={getNavClass('/admin/notificacoes')}>Notificações</Link>
+            <Link to="/admin/usuarios" className={getNavClass('/admin/usuarios')}>Usuários</Link>
           </>
         )}
         <Link to="/admin/conta" className={getNavClass('/admin/conta')}>Minha conta</Link>
@@ -179,6 +187,7 @@ const Dashboard = () => {
               <Route path="/servicos" element={<AdminServices />} />
               <Route path="/financeiro" element={<AdminFinance />} />
               <Route path="/notificacoes" element={<AdminNotifications />} />
+              <Route path="/usuarios" element={<AdminUsers currentUserId={user.id} />} />
             </>
           )}
         </Routes>

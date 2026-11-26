@@ -119,3 +119,26 @@ def test_downgrade_to_base_removes_everything(connection):
         "WHERE n.nspname = current_schema() AND t.typtype = 'e'"
     )).scalar_one()
     assert enums == 0
+
+
+def columns(conn, table) -> set[str]:
+    return {c["name"] for c in inspect(conn).get_columns(table)}
+
+
+def test_0004_adds_must_change_password_as_false_and_downgrade_removes_it(connection):
+    """SPEC/2026-11-25-admin-usuarios.md: as contas que já existem não precisam trocar a senha."""
+    from alembic import command
+
+    config = alembic_config(connection)
+    command.upgrade(config, "0003")
+    connection.execute(text(
+        "INSERT INTO users (id, email, hashed_password, full_name, role, is_active, email_verified) "
+        "VALUES (gen_random_uuid(), 'antigo@teste.com', 'x', 'Antigo', 'CLIENT', true, false)"
+    ))
+    assert "must_change_password" not in columns(connection, "users")
+
+    command.upgrade(config, "0004")
+    assert connection.execute(text("SELECT must_change_password FROM users")).scalar_one() is False
+
+    command.downgrade(config, "0003")
+    assert "must_change_password" not in columns(connection, "users")

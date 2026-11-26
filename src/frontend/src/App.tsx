@@ -10,6 +10,7 @@ import Fidelidade from './pages/Fidelidade';
 import Login from './pages/Login';
 import LoginAdmin from './pages/LoginAdmin';
 import Account from './pages/Account';
+import ChangePasswordRequired from './pages/ChangePasswordRequired';
 import { logout } from './api';
 
 const Navbar = () => {
@@ -72,6 +73,7 @@ const App = () => {
                   <Route path="/club" element={<TrimClub />} />
                   <Route path="/fidelidade" element={<Fidelidade />} />
                   <Route path="/conta" element={<Account loginPath="/login" />} />
+                  <Route path="/trocar-senha" element={<ChangePasswordRequired />} />
                 </Routes>
               </main>
             </>
