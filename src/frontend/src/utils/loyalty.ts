@@ -1,4 +1,4 @@
-import { fitsTrimmed } from './textValidation';
+import { fitsTrimmed, parsePositiveInt } from './textValidation';
 
 // Fidelidade no painel: os prêmios e o ajuste manual de pontos, com as regras do backend
 // (src/backend/modules/loyalty/schemas.py; SPEC/2026-11-26-painel-fidelidade.md). Cada validate*
@@ -18,12 +18,7 @@ export const ADJUST_POINTS_ERROR = 'Pontos devem ser um número inteiro de 1 a 1
 export const ADJUST_REASON_ERROR = `O motivo deve ter entre ${REASON_MIN} e ${REASON_MAX} caracteres`;
 
 /** Pontos: inteiro de 1 a 1.000.000, ou null quando não serve. */
-export function parsePoints(text: string): number | null {
-  const value = text.trim();
-  if (!/^\d+$/.test(value)) return null;
-  const points = Number(value);
-  return points >= 1 && points <= POINTS_MAX ? points : null;
-}
+export const parsePoints = (text: string): number | null => parsePositiveInt(text, POINTS_MAX);
 
 /** "1.200 pts" */
 export const formatPoints = (points: number) => `${points.toLocaleString('pt-BR')} pts`;
