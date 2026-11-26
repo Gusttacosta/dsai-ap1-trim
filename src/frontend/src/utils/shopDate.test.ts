@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { addDays, formatLongDate, formatShopDateTime, shopToday, toStartDatetime } from './shopDate';
+import { addDays, formatLongDate, formatShopDate, formatShopDateTime, shopToday, toStartDatetime } from './shopDate';
 
 describe('shopToday', () => {
   it('às 22h de Brasília ainda é o mesmo dia, embora em UTC já seja o seguinte (#12)', () => {
@@ -49,5 +49,15 @@ describe('formatShopDateTime', () => {
   it('entende o horário com fuso e aceita outro fuso', () => {
     expect(formatShopDateTime('2026-12-02T10:00:00-03:00')).toBe('qua., 02/12/2026 às 10:00');
     expect(formatShopDateTime('2026-12-02T13:00:00Z', 'UTC')).toBe('qua., 02/12/2026 às 13:00');
+  });
+});
+
+describe('formatShopDate', () => {
+  it('mostra o dia no fuso da barbearia (SPEC/2026-11-26-painel-galeria.md)', () => {
+    expect(formatShopDate('2026-11-26T12:00:00Z')).toBe('26/11/2026');
+  });
+
+  it('à 1h UTC ainda é o dia anterior em Brasília', () => {
+    expect(formatShopDate('2026-11-27T01:00:00Z')).toBe('26/11/2026');
   });
 });

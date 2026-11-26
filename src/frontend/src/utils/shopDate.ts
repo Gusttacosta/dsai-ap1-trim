@@ -56,3 +56,10 @@ export function formatShopDateTime(iso: string, timeZone: string = SHOP_TIMEZONE
   const part = (type: Intl.DateTimeFormatPartTypes) => parts.find((p) => p.type === type)?.value ?? '';
   return `${part('weekday')}, ${part('day')}/${part('month')}/${part('year')} às ${part('hour')}:${part('minute')}`;
 }
+
+/** Dia de um instante da API no fuso da barbearia: "26/11/2026". */
+export function formatShopDate(iso: string, timeZone: string = SHOP_TIMEZONE): string {
+  return new Intl.DateTimeFormat('pt-BR', { timeZone, day: '2-digit', month: '2-digit', year: 'numeric' }).format(
+    new Date(iso),
+  );
+}
