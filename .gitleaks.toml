@@ -25,4 +25,14 @@ targetRules = ["generic-api-key"]
 condition = "AND"
 paths = ['''^tests/[^/]+\.py$''']
 regexTarget = "secret"
-regexes = ['''^(senhaForte123|outraSenha456)$''']
+regexes = ['''^(senhaForte123|outraSenha456|senhaAntiga123)$''']
+
+# Senhas temporárias fictícias dos testes do painel de usuários (#99), só nos
+# arquivos de teste do frontend.
+[[allowlists]]
+description = "Senhas temporarias ficticias dos testes do frontend"
+targetRules = ["generic-api-key"]
+condition = "AND"
+paths = ['''^src/frontend/src/.+\.test\.tsx?$''']
+regexTarget = "secret"
+regexes = ['''^(Abc123def456|Temp1234abcd)$''']
