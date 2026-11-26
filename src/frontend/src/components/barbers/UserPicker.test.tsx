@@ -34,7 +34,9 @@ function renderPicker(barberUserIds: string[] = []) {
   return handlers;
 }
 
-beforeEach(() => get.mockReset());
+beforeEach(() => {
+  get.mockReset();
+});
 afterEach(cleanup);
 
 describe('UserPicker', () => {
