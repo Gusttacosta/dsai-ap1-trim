@@ -176,3 +176,11 @@ O commit, o push e a abertura deste PR vêm depois do corte e não estão no arq
 ### [2026-11-25-1532-claudecode.jsonl](2026-11-25-1532-claudecode.jsonl)
 
 Sessão de 25/11 a partir das 15:32: segunda parte da sessão das 12:40, separada pelo `timestamp` (entradas depois de `2026-11-25T18:31:57Z`, até `2026-11-25T19:00:30Z`). Cobre os merges do #93, do #94 e do #95, que fecharam as últimas issues (#3, #6, #13 e #16), a conferência da CI da main e da produção depois das migrações, e a abertura deste PR. Exportada com o `export_safe.py` e um filtro pelo início, sem os blocos `thinking`. Os 16 `message.id` do agente no intervalo estão todos no arquivo. Foram mascarados com `***` os e-mails, a parte antes do @ do e-mail pessoal, as credenciais em URL e os valores de senha e token, como na primeira parte. O commit, o push e a conferência da CI deste PR vêm depois do corte e não estão no arquivo.
+
+### [2026-11-25-2140-claudecode.jsonl](2026-11-25-2140-claudecode.jsonl)
+
+Sessão do PR #98 (meus agendamentos, issue #97). Exportada pelo terminal, porque o pedido de exportação ao próprio agente é bloqueado pelo filtro de segurança do modelo (reasoning_extraction). Mascaramento com jq dentro das strings do JSON, incluindo a parte antes do @ do e-mail pessoal.
+
+### [2026-11-25-2213-claudecode.jsonl](2026-11-25-2213-claudecode.jsonl)
+
+Sessão do PR #100 (gestão de usuários e senha temporária, issue #99). Exportada pelo terminal, porque o pedido de exportação ao próprio agente é bloqueado pelo filtro de segurança do modelo (reasoning_extraction). Mascaramento com jq dentro das strings do JSON, incluindo a parte antes do @ do e-mail pessoal.
