@@ -5,7 +5,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import api from '../api';
 import Dashboard from './Dashboard';
 
-// SPEC/2026-11-25-admin-usuarios.md: a aba "Usuários" existe só para o admin.
+// SPEC/2026-11-25-admin-usuarios.md: a aba "Usuários" existe só para o admin, e quem está com a
+// senha temporária troca a senha antes de usar o painel.
 
 vi.mock('../api', () => ({ default: { get: vi.fn(), post: vi.fn(), put: vi.fn() }, logout: vi.fn() }));
 const mockedGet = api.get as unknown as ReturnType<typeof vi.fn>;
@@ -51,5 +52,14 @@ describe('Dashboard: aba Usuários', () => {
     expect(screen.queryByRole('link', { name: 'Usuários' })).toBeNull();
     expect(screen.queryByRole('heading', { name: '👥 Usuários' })).toBeNull();
     expect(mockedGet).not.toHaveBeenCalledWith('/auth/users', expect.anything());
+  });
+});
+
+describe('Dashboard: senha temporária', () => {
+  it('com a troca pendente, manda para a troca de senha', async () => {
+    renderAt('/admin', me('admin', { must_change_password: true }));
+
+    expect(await screen.findByText('tela de troca')).toBeTruthy();
+    expect(screen.queryByRole('link', { name: 'Usuários' })).toBeNull();
   });
 });

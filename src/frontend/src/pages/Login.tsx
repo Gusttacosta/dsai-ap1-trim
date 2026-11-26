@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import api from '../api';
+import { pathAfterLogin } from '../utils/afterLogin';
 
 const Login = () => {
   const [email, setEmail] = useState('');
@@ -29,7 +30,7 @@ const Login = () => {
         }
 
         localStorage.setItem('token', response.data.access_token);
-        navigate('/');
+        navigate(pathAfterLogin(response.data.user));
       }
     } catch (err: any) {
       if (err.response?.status === 422) {

@@ -5,6 +5,7 @@ import PasswordForm from '../components/account/PasswordForm';
 import ProfileForm from '../components/account/ProfileForm';
 import styles from '../components/account/Account.module.css';
 import { useAccount, type AccountUser } from '../hooks/useAccount';
+import { CHANGE_PASSWORD_PATH } from '../utils/afterLogin';
 import { ROLE_LABELS } from '../utils/roles';
 
 // "Minha conta": dados pessoais e troca de senha (SPEC/2026-11-22-auth-perfil-senha.md).
@@ -29,6 +30,7 @@ const Account = ({ loginPath }: Props) => {
   const { user, status, loadError, saveProfile, changePassword } = useAccount();
 
   if (status === 'unauthenticated') return <Navigate to={loginPath} replace />;
+  if (user?.must_change_password) return <Navigate to={CHANGE_PASSWORD_PATH} replace />;
   if (status === 'loading') return <p className={styles.page}>Carregando...</p>;
   if (status === 'error' || !user) {
     return (
