@@ -2,6 +2,7 @@
 import { act, renderHook, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import api from '../api';
+import { ALUGUEL, LUZ, expenseCategory, makeExpense } from '../testUtils/expenses';
 import { httpError } from '../testUtils/httpError';
 import {
   useAdminExpenses,
@@ -17,24 +18,10 @@ vi.mock('../api', () => ({ default: { get: vi.fn(), post: vi.fn(), put: vi.fn(),
 type Mock = ReturnType<typeof vi.fn>;
 const mocked = api as unknown as { get: Mock; post: Mock; put: Mock; delete: Mock };
 
-const category = (name: string): ExpenseCategory => ({ id: name.toLowerCase(), name, created_at: '2026-11-01T10:00:00' });
-const ALUGUEL = category('Aluguel');
-const LUZ = category('Luz');
-
-const expense = (id: string, payment_date: string, cat: ExpenseCategory | null = null): Expense => ({
-  id,
-  category_id: cat?.id ?? null,
-  description: `Despesa ${id}`,
-  amount: '100.00',
-  payment_date,
-  is_recurring: false,
-  created_at: '2026-11-01T10:00:00',
-  updated_at: '2026-11-01T10:00:00',
-  category: cat,
-});
-
-const E1 = expense('e1', '2026-11-20', ALUGUEL);
-const E2 = expense('e2', '2026-11-10', LUZ);
+const E1 = makeExpense('e1', {}, ALUGUEL);
+const E2 = makeExpense('e2', { payment_date: '2026-11-10' }, LUZ);
+const expense = (id: string, payment_date: string) => makeExpense(id, { payment_date });
+const category = expenseCategory;
 
 const NO_PERIOD: Period = { start: '', end: '' };
 
@@ -190,7 +177,7 @@ describe('useExpenseCategories', () => {
 
   it('nome repetido lança o 400 e a lista não muda', async () => {
     const { result } = await loadedCategories();
-    mocked.post.mockRejectedValue(httpError(400, 'Já existe uma categoria chamada 'Luz'.'));
+    mocked.post.mockRejectedValue(httpError(400, "Já existe uma categoria chamada 'Luz'."));
 
     await expect(act(() => result.current.createCategory('Luz'))).rejects.toThrow();
     expect(result.current.categories).toEqual([ALUGUEL, LUZ]);
