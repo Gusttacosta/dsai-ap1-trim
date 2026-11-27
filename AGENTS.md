@@ -121,6 +121,11 @@ Problema, solução e valor para o usuário.
 
 ## Fora do escopo
 - O que deliberadamente NÃO será feito.
+
+## Rollback
+- Código: `git revert -m 1 <sha-do-merge>` numa branch, por PR (nunca `push --force`).
+- Migração (se houver): `alembic downgrade <revisão-anterior>`, junto com o revert do PR.
+- Deploy: redeploy do commit anterior no Render (Rollback no deploy anterior do serviço).
 ```
 
 ---

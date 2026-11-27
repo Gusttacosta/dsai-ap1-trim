@@ -472,9 +472,136 @@ README original que tratam da hospedagem (a URL pública e a linha de deploy da 
 > 
 > - **Hospedagem / Deploy:** Vercel (frontend) + Render / Railway (backend + banco)
 
+## 📈 Métricas da AP2
+
+Medidas em 26/11/2026 sobre a `origin/main` em `fecf54d` (merge do #113), contra a linha de base
+da AP1, `95c79b5`. A documentação para quem vai manter o projeto está em
+[`docs/PASSAGEM.md`](docs/PASSAGEM.md).
+
+### Linhas novas (`cloc`)
+
+Comando, rodado na raiz do repositório:
+
+```bash
+cloc --git --diff 95c79b5 origin/main \
+  --exclude-dir=node_modules,dist,build,vendor,prompts \
+  --not-match-f='(lock|\.min\.|CUSTOS\.md|NOTAS\.md)'
+```
+
+`prompts/` só contém `prompts/sessoes/`, e o único lockfile versionado é
+`src/frontend/package-lock.json`.
+
+| Linguagem | Arquivos adicionados | Linhas de código adicionadas | Linhas de código modificadas |
+| :--- | ---: | ---: | ---: |
+| TypeScript | 165 | 11.786 | 183 |
+| Python | 59 | 11.258 | 354 |
+| Markdown | 59 | 4.084 | 131 |
+| CSS | 2 | 353 | 0 |
+| YAML | 2 | 259 | 0 |
+| TOML | 1 | 24 | 0 |
+| JSON | 0 | 6 | 3 |
+| Text | 0 | 4 | 6 |
+| INI | 1 | 2 | 0 |
+| **Total** | **289** | **27.776** | **677** |
+
+O Markdown é quase todo specs (`SPEC/`) e documentação. Sem Markdown, JSON, YAML e Text (as
+linguagens que o comando de [`AGENTS.md`](AGENTS.md) §10 exclui), as linhas de código adicionadas
+são 23.423. As 195.278 linhas de Python removidas são, na maior parte, os 13
+`tests/test_<módulo>.py` gerados pela AP1 (ver [`docs/PASSAGEM.md`](docs/PASSAGEM.md#decisões)).
+
+<details>
+<summary>Saída completa do <code>cloc</code></summary>
+
+```text
+github.com/AlDanial/cloc v 2.04  T=3.30 s (113.7 files/s, 123461.6 lines/s)
+-------------------------------------------------------------------------------
+Language                     files          blank        comment           code
+-------------------------------------------------------------------------------
+Python
+ same                            0              0            573           3136
+ modified                       48              0             76            354
+ added                          59           4215            957          11258
+ removed                        17          65071         104143         195278
+TypeScript
+ same                            0              0              5            755
+ modified                       15              0              0            183
+ added                         165           2341            699          11786
+ removed                         0              1              4             55
+Markdown
+ same                            0              0              0             58
+ modified                        2              0              0            131
+ added                          59            931              0           4084
+ removed                         0              0              0             55
+CSS
+ same                            0              0              0            163
+ modified                        2              0              1              0
+ added                           2             59              7            353
+ removed                         0              0              0              0
+YAML
+ same                            0              0              0              0
+ modified                        0              0              0              0
+ added                           2             34             27            259
+ removed                         0              0              0              0
+Text
+ same                            0              0              0             23
+ modified                        1              0              0              6
+ added                           0              0              0              4
+ removed                         0              0              0              0
+JSON
+ same                            0              0              0             23
+ modified                        1              0              0              3
+ added                           0              0              0              6
+ removed                         0              0              0              0
+TOML
+ same                            0              0              0              0
+ modified                        0              0              0              0
+ added                           1              5              9             24
+ removed                         0              0              0              0
+INI
+ same                            0              0              0              0
+ modified                        0              0              0              0
+ added                           1              0              0              2
+ removed                         0              0              0              0
+-------------------------------------------------------------------------------
+SUM:
+ same                            0              0            578           4158
+ modified                       69              0             77            677
+ added                         289           7585           1699          27776
+ removed                        17          65072         104147         195388
+-------------------------------------------------------------------------------
+```
+
+</details>
+
+### Duplicação (`jscpd`)
+
+Mesmo comando e mesma versão do job `duplicacao` da CI
+([`.github/workflows/ci.yml`](.github/workflows/ci.yml)):
+
+```bash
+npx --yes jscpd@5.4.3 src \
+  --ignore "**/node_modules/**,**/dist/**,**/__pycache__/**,**/package-lock.json" \
+  --reporters console,markdown --output jscpd-report --exit-code 0
+```
+
+Resultado: **2,25% de linhas duplicadas** (596 de 26.544 linhas, 60 clones em 257 arquivos;
+2,24% dos tokens). Por formato: Python 3,43%, TSX 1,79%, TypeScript 1,67%, CSS 0,93%.
+
+### Commits e PRs
+
+Desde `95c79b5` até `fecf54d`:
+
+- **393 commits** (`git rev-list --count 95c79b5..origin/main`): 307 sem contar merges e 86 merges.
+- **65 PRs mergeados** (`gh pr list --state merged`), do #1 ao #113.
+
+---
+
 ## 📊 Contagem de Linhas de Código (`cloc`)
 
 #### 🆕 AP2 — fork
+
+Medição de 19/11/2026, mantida como registro. A medição atual está em
+[Métricas da AP2](#-métricas-da-ap2).
 
 Comando executado em 19/11/2026, comparando a linha de base da AP1 (95c79b5) com o estado atual do fork. Código novo: 734 linhas adicionadas e 94 modificadas.
 
