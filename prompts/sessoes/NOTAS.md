@@ -184,3 +184,35 @@ Sessão do PR #98 (meus agendamentos, issue #97). Exportada pelo terminal, porqu
 ### [2026-11-25-2213-claudecode.jsonl](2026-11-25-2213-claudecode.jsonl)
 
 Sessão do PR #100 (gestão de usuários e senha temporária, issue #99). Exportada pelo terminal, porque o pedido de exportação ao próprio agente é bloqueado pelo filtro de segurança do modelo (reasoning_extraction). Mascaramento com jq dentro das strings do JSON, incluindo a parte antes do @ do e-mail pessoal.
+
+### [2026-11-26-1320-claudecode.jsonl](2026-11-26-1320-claudecode.jsonl)
+
+Sessão de 26/11 a partir das 13:20 que atualiza a branch do PR #101 (`docs/sessao-2026-11-25-henrique`) com a `main`. O objetivo era destravar o gitleaks: rodar o job de novo não resolvia, porque ele usava o `.gitleaks.toml` antigo da branch. O merge (`890b5ff`) trouxe o `.gitleaks.toml` atualizado da `main`, sem conflito, e depois dele o job "Segredos (gitleaks)" passou na CI junto com os outros cinco checks. O gitleaks não está instalado na VM, então essa conferência só rodou na CI.
+
+### [2026-11-26-1408-claudecode.jsonl](2026-11-26-1408-claudecode.jsonl)
+
+Sessão de 26/11 a partir das 14:08 (issue #102, PR #103). Para achar a senha do PostgreSQL local, o agente tentou ler o `.env` (`grep -c TEST_DATABASE_URL .env`), e a regra de permissão bloqueou a leitura. O arquivo não foi lido e nenhum valor dele aparece na sessão. O pytest rodou localmente sem banco: os testes que precisam do PostgreSQL foram pulados (60 passaram e 1151 foram pulados). A execução completa, com o PostgreSQL da CI, passou no job Backend (Python 3.12) do PR.
+
+O mesmo vale para as sessões de 14:57, 16:33 e 18:03, que têm notas próprias.
+
+### [2026-11-26-1457-claudecode.jsonl](2026-11-26-1457-claudecode.jsonl)
+
+Sessão de 26/11 a partir das 14:57 (issue #104, PR #105, despesas no painel do admin). O commit `f0a494e` (hook das despesas e das categorias) não compila sozinho: um problema de aspas na mensagem de nome repetido, em `src/frontend/src/hooks/useAdminExpenses.test.ts`, quebra a compilação desse arquivo. O conserto veio no `68bf736`, da mesma branch, que também passa o teste a usar as fixtures comuns. Os commits entre os dois herdam o mesmo erro de compilação. O histórico não foi reescrito.
+
+Nesta sessão o agente também tentou ler o `.env` (`cat .env`) para achar a senha do PostgreSQL local, e a regra de permissão bloqueou, como na sessão de 14:08 (ver a nota em `2026-11-26-1408.notas.md`). O pytest rodou localmente sem banco, e a execução completa passou na CI.
+
+### [2026-11-26-1633-claudecode.jsonl](2026-11-26-1633-claudecode.jsonl)
+
+Ver a nota em 2026-11-26-1408.notas.md (o agente tentou ler o `.env` com `grep -n "DATABASE_URL" .env`, a regra de permissão bloqueou, o pytest rodou sem banco localmente e completo na CI do PR #107).
+
+### [2026-11-26-1803-claudecode.jsonl](2026-11-26-1803-claudecode.jsonl)
+
+Ver a nota em 2026-11-26-1408.notas.md (o agente tentou ler o `.env` com `cat .env`, a regra de permissão bloqueou, o pytest rodou sem banco localmente e completo na CI do PR #109).
+
+### [2026-11-26-1840-claudecode.jsonl](2026-11-26-1840-claudecode.jsonl)
+
+Sessão de 26/11 a partir das 18:40 (PR #111). O prompt já mandava rodar o pytest sem `TEST_DATABASE_URL` e proibia ler o `.env`. Diferente das sessões de 14:08, 14:57, 16:33 e 18:03 (ver a nota em `2026-11-26-1408.notas.md`), o agente não tentou ler o `.env`, e nenhum bloqueio de permissão aparece na sessão. O pytest rodou localmente sem banco (66 passaram e 1160 foram pulados), e a execução completa passou no job Backend (Python 3.12) da CI.
+
+### [2026-11-26-1921-claudecode.jsonl](2026-11-26-1921-claudecode.jsonl)
+
+Sessão de 26/11 a partir das 19:21 (issue #112, PR #113, estoque no painel). A suíte completa do vitest rodou 4 vezes no frontend. Em uma delas, 1 teste falhou (846 de 847 passaram), e as outras 3 passaram inteiras. A saída filtrada não registrou qual teste falhou. Rodar 3 vezes os arquivos do estoque e do Dashboard também não repetiu a falha, então ela foi tratada como intermitente e não como erro da mudança. Os testes do frontend passaram na CI do PR.
