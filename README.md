@@ -42,14 +42,20 @@ Repositório original (AP1): [Gusttacosta/dsai-ap1-trim](https://github.com/Gust
 - **Estilização:** CSS puro (`index.css` global e CSS Modules por página)
 - **Testes do frontend:** Vitest (`npm test`)
 - **Backend / API:** Python 3.12 + FastAPI, servido pelo Uvicorn
-- **ORM:** SQLAlchemy 2 assíncrono (`asyncpg`; `psycopg2` para a URL síncrona). O Alembic está nas dependências, mas não há migrações: as tabelas são criadas na inicialização da API (ver #6)
+- **ORM / Migrações:** SQLAlchemy 2 assíncrono (`asyncpg`; `psycopg2` para a URL síncrona) e Alembic, com as migrações em `alembic/versions/` (`0001` a `0004`) aplicadas por `scripts/migrate.py` (#6, PR #94)
 - **Banco de Dados:** PostgreSQL (16 na CI; o Render fornece o de produção)
 - **Validação e configuração:** Pydantic 2 + pydantic-settings (variáveis do `.env`)
-- **Autenticação:** JWT (python-jose + passlib/bcrypt)
+- **Autenticação:** JWT com PyJWT (no lugar do python-jose desde o PR #43) + passlib/bcrypt, com refresh token e logout que revoga a sessão
 - **Fuso horário:** `zoneinfo` + `tzdata`, com o fuso da barbearia em `SHOP_TIMEZONE` ([`SPEC/2026-11-18-agendamento-fuso-horario.md`](SPEC/2026-11-18-agendamento-fuso-horario.md))
 - **Testes do backend:** pytest + pytest-asyncio + httpx; os testes de banco usam um PostgreSQL em `TEST_DATABASE_URL`
 - **Qualidade:** Ruff
-- **CI:** GitHub Actions ([`.github/workflows/ci.yml`](.github/workflows/ci.yml)), em todo push e PR para a `main`: backend (Python 3.12, PostgreSQL 16 de serviço, import da aplicação e `pytest`) e frontend (Node 22, `npm ci`, `npm test`, build sem `VITE_API_URL` precisa falhar, build com ela precisa passar, nenhuma URL do Railway em `src/`)
+- **CI:** GitHub Actions ([`.github/workflows/ci.yml`](.github/workflows/ci.yml)), em todo push e PR para a `main`, com seis jobs:
+  - `backend`: Python 3.12 e PostgreSQL 16 de serviço. Faz o import da aplicação, roda `scripts/custos.py --check` e o `pytest` com cobertura, e o `diff-cover` exige pelo menos 70% de cobertura do código novo;
+  - `frontend`: Node 22. Confere que não há URL do Railway em `src/` e roda `npm ci`, `tsc` e `npm test`. O build sem `VITE_API_URL` precisa falhar, e com ela precisa passar;
+  - `gitleaks`: procura segredos no histórico inteiro, com as exceções restritas de [`.gitleaks.toml`](.gitleaks.toml);
+  - `trailers`: todo commit do PR precisa ter `Agent:` e `Spec:`;
+  - `dependencias`: `npm audit` e `pip-audit`, que falham em alertas high e críticos;
+  - `duplicacao`: `jscpd` 5.4.3 em `src/`.
 - **Hospedagem / Deploy:** Render, pelo Blueprint [`render.yaml`](render.yaml): PostgreSQL (`trim-db`), API (`trim-api`, Web Service Python) e site estático (`trim-web`), com deploy automático a cada push na `main` ([`SPEC/2026-11-16-deploy-render.md`](SPEC/2026-11-16-deploy-render.md))
 
 ---
@@ -143,6 +149,25 @@ CORS_ORIGINS=http://localhost:5173,http://<ip-da-vm>:5173
 
 `CORS_ORIGINS` precisa incluir `http://<ip-da-vm>:5173`, porque é dessa origem que o navegador do
 host chama a API. O `.env` está no `.gitignore` e nunca vai para o Git.
+
+Todas as variáveis do [`.env.example`](.env.example), que valem também para a seção do Windows:
+
+| Variável | Padrão no `.env.example` | Para que serve |
+| :--- | :--- | :--- |
+| `DATABASE_URL` / `DATABASE_URL_SYNC` | `postgres:postgres@localhost:5432/trim_db` | Banco da API (`asyncpg`) e URL síncrona (`psycopg2`), usada pelo Alembic |
+| `SECRET_KEY` | valor de exemplo | Assina os JWT. Troque por um valor longo e aleatório |
+| `ALGORITHM` | `HS256` | Algoritmo dos JWT |
+| `ACCESS_TOKEN_EXPIRE_MINUTES` | `1440` | Validade do access token, em minutos |
+| `APP_NAME` / `APP_ENV` / `DEBUG` | `Trim` / `development` / `true` | Com `APP_ENV=development`, o backend cria as tabelas que faltarem e publica o `/docs` |
+| `CORS_ORIGINS` | `http://localhost:5173,http://localhost:3000` | Origens do frontend liberadas, separadas por vírgula |
+| `HOST` / `PORT` | `0.0.0.0` / `8000` | Endereço do servidor |
+| `SEED_SECRET`, `SEED_ADMIN_PASSWORD`, `SEED_DEMO_PASSWORD` | vazias | Seed de demonstração (ver o passo 6). Vazio = rotas de seed desligadas |
+| `SHOP_TIMEZONE` | `America/Sao_Paulo` | Fuso da barbearia: o expediente e as datas da tela seguem esse fuso, e o banco guarda UTC |
+| `BOOKING_MIN_LEAD_MINUTES` | `0` | Antecedência mínima de um agendamento, em minutos (0 só proíbe o passado) |
+| `BOOKING_MAX_DAYS_AHEAD` | `30` | Até quantos dias à frente se pode agendar |
+
+O frontend tem o próprio [`src/frontend/.env.example`](src/frontend/.env.example), só com a
+`VITE_API_URL` (ver o passo 5).
 
 #### 4. Backend
 
@@ -280,8 +305,8 @@ O backend sobe sem nenhuma variável extra desde a correção da #2 (PR #28). Nu
 ela, a inicialização falha com `UnicodeEncodeError` (os `print` com emoji não cabem no cp1252 do
 console). Nesse caso, rode `$env:PYTHONUTF8=1` antes do `uvicorn`.
 
-Como na seção do Henrique, **não há migrações** (ver #6): as tabelas são criadas pelo próprio
-backend ao iniciar. Para conferir, use `curl.exe http://localhost:8000/health`. No PowerShell 5.1,
+Como na seção do Henrique, rode `python scripts/migrate.py` antes do `uvicorn`, para aplicar as
+migrações do Alembic (ver #6). Para conferir, use `curl.exe http://localhost:8000/health`. No PowerShell 5.1,
 `curl` sem `.exe` é um apelido do `Invoke-WebRequest` e não aceita as mesmas opções.
 
 #### 5. Frontend
@@ -336,7 +361,8 @@ python -m pytest -q
 cd src\frontend; npm test
 ```
 
-Neste ambiente, a suíte do backend (cerca de 13 mil testes) leva de 1,5 a 2,5 minutos.
+A suíte do backend tem 1.226 testes (`pytest --collect-only -q`, em 28/11/2026). Os cerca de 13 mil
+testes gerados da AP1 foram trocados por testes de integração por módulo (#3).
 
 ---
 
@@ -365,8 +391,8 @@ Neste ambiente, a suíte do backend (cerca de 13 mil testes) leva de 1,5 a 2,5 m
 > cp .env.example .env
 > # Edite o .env com suas credenciais do PostgreSQL
 > 
-> # Execute as migrations (ver #6)
-> python scripts/migrate.py
+> # Execute as migrations
+> alembic upgrade head
 > 
 > # Execute o servidor de desenvolvimento
 > uvicorn src.backend.main:app --reload
@@ -393,8 +419,8 @@ Render: **New → Blueprint**, escolha este repositório e preencha as variávei
 
 | Serviço | Tipo | O que faz |
 | :--- | :--- | :--- |
-| `trim-db` | PostgreSQL (gratuito) | Banco de produção. As tabelas são criadas na inicialização da API. |
-| `trim-api` | Web Service Python 3.12 | `pip install -r requirements.txt`, depois `uvicorn src.backend.main:app --host 0.0.0.0 --port $PORT`. Health check em `/health`. Deploy automático a cada push na `main`. |
+| `trim-db` | PostgreSQL (gratuito) | Banco de produção. O esquema vem das migrações do Alembic, aplicadas a cada deploy da API. |
+| `trim-api` | Web Service Python 3.12 | `pip install -r requirements.txt`, depois `python scripts/migrate.py && uvicorn src.backend.main:app --host 0.0.0.0 --port $PORT`. O `migrate.py` aplica as migrações pendentes; num banco antigo, criado pelo `create_all`, ele faz antes o `stamp 0001`. Health check em `/health`. Deploy automático a cada push na `main`. |
 | `trim-web` | Static Site | Em `src/frontend`: `npm ci && npm run build`, publica `dist`. Rewrite de `/*` para `/index.html` (rotas do React Router). Deploy automático a cada push na `main`. |
 
 #### URLs reais dos serviços
@@ -474,7 +500,7 @@ README original que tratam da hospedagem (a URL pública e a linha de deploy da 
 
 ## 📈 Métricas da AP2
 
-Medidas em 26/11/2026 sobre a `origin/main` em `fecf54d` (merge do #113), contra a linha de base
+Medidas em 28/11/2026 sobre a `origin/main` em `44a381f` (merge do #116), contra a linha de base
 da AP1, `95c79b5`. A documentação para quem vai manter o projeto está em
 [`docs/PASSAGEM.md`](docs/PASSAGEM.md).
 
@@ -488,6 +514,11 @@ cloc --git --diff 95c79b5 origin/main \
   --not-match-f='(lock|\.min\.|CUSTOS\.md|NOTAS\.md)'
 ```
 
+No Windows, o `--git` do `cloc` falha, por causa do `tar` do Git Bash e da falta de `unzip`. Nesse
+caso, exporte as duas árvores com `git archive 95c79b5 | tar -x -C ap1` e
+`git archive origin/main | tar -x -C main`, e rode `cloc --diff ap1 main` com os mesmos filtros.
+A medição abaixo foi feita assim, com o `cloc` 2.12.
+
 `prompts/` só contém `prompts/sessoes/`, e o único lockfile versionado é
 `src/frontend/package-lock.json`.
 
@@ -495,14 +526,14 @@ cloc --git --diff 95c79b5 origin/main \
 | :--- | ---: | ---: | ---: |
 | TypeScript | 165 | 11.786 | 183 |
 | Python | 59 | 11.258 | 354 |
-| Markdown | 59 | 4.084 | 131 |
+| Markdown | 61 | 4.473 | 131 |
 | CSS | 2 | 353 | 0 |
 | YAML | 2 | 259 | 0 |
 | TOML | 1 | 24 | 0 |
 | JSON | 0 | 6 | 3 |
 | Text | 0 | 4 | 6 |
 | INI | 1 | 2 | 0 |
-| **Total** | **289** | **27.776** | **677** |
+| **Total** | **291** | **28.165** | **677** |
 
 O Markdown é quase todo specs (`SPEC/`) e documentação. Sem Markdown, JSON, YAML e Text (as
 linguagens que o comando de [`AGENTS.md`](AGENTS.md) §10 exclui), as linhas de código adicionadas
@@ -513,27 +544,27 @@ são 23.423. As 195.278 linhas de Python removidas são, na maior parte, os 13
 <summary>Saída completa do <code>cloc</code></summary>
 
 ```text
-github.com/AlDanial/cloc v 2.04  T=3.30 s (113.7 files/s, 123461.6 lines/s)
+github.com/AlDanial/cloc v 2.12  T=6.18 s (70.4 files/s, 66609.7 lines/s)
 -------------------------------------------------------------------------------
 Language                     files          blank        comment           code
 -------------------------------------------------------------------------------
 Python
- same                            0              0            573           3136
+ same                           25            144            699           3958
  modified                       48              0             76            354
  added                          59           4215            957          11258
  removed                        17          65071         104143         195278
 TypeScript
- same                            0              0              5            755
+ same                            3              6              5            828
  modified                       15              0              0            183
  added                         165           2341            699          11786
  removed                         0              1              4             55
 Markdown
- same                            0              0              0             58
+ same                           15            346              0           1133
  modified                        2              0              0            131
- added                          59            931              0           4084
- removed                         0              0              0             55
+ added                          61           1024              0           4473
+ removed                         0              0              0             54
 CSS
- same                            0              0              0            163
+ same                            7            146              4           1126
  modified                        2              0              1              0
  added                           2             59              7            353
  removed                         0              0              0              0
@@ -542,32 +573,47 @@ YAML
  modified                        0              0              0              0
  added                           2             34             27            259
  removed                         0              0              0              0
+JSON
+ same                            1              2              0             46
+ modified                        1              0              0              3
+ added                           0              0              0              6
+ removed                         0              0              0              0
+INI
+ same                            1             10              0             32
+ modified                        0              0              0              0
+ added                           1              0              0              2
+ removed                         0              0              0              0
 Text
  same                            0              0              0             23
  modified                        1              0              0              6
  added                           0              0              0              4
  removed                         0              0              0              0
-JSON
- same                            0              0              0             23
- modified                        1              0              0              3
- added                           0              0              0              6
+SVG
+ same                            4              0              0             27
+ modified                        0              0              0              0
+ added                           0              0              0              0
  removed                         0              0              0              0
 TOML
  same                            0              0              0              0
  modified                        0              0              0              0
  added                           1              5              9             24
  removed                         0              0              0              0
-INI
- same                            0              0              0              0
+Mako
+ same                            1              8              0             18
  modified                        0              0              0              0
- added                           1              0              0              2
+ added                           0              0              0              0
+ removed                         0              0              0              0
+HTML
+ same                            1              0              1             16
+ modified                        0              0              0              0
+ added                           0              0              0              0
  removed                         0              0              0              0
 -------------------------------------------------------------------------------
 SUM:
- same                            0              0            578           4158
+ same                           58            662            709           7207
  modified                       69              0             77            677
- added                         289           7585           1699          27776
- removed                        17          65072         104147         195388
+ added                         291           7678           1699          28165
+ removed                        17          65072         104147         195387
 -------------------------------------------------------------------------------
 ```
 
@@ -589,10 +635,23 @@ Resultado: **2,25% de linhas duplicadas** (596 de 26.544 linhas, 60 clones em 25
 
 ### Commits e PRs
 
-Desde `95c79b5` até `fecf54d`:
+Desde `95c79b5` até `44a381f`:
 
-- **393 commits** (`git rev-list --count 95c79b5..origin/main`): 307 sem contar merges e 86 merges.
-- **65 PRs mergeados** (`gh pr list --state merged`), do #1 ao #113.
+- **401 commits** (`git rev-list --count 95c79b5..origin/main`): 313 sem contar merges e 88 merges.
+- **67 PRs mergeados** (`gh pr list --state merged`), do #1 ao #116.
+
+### Demais critérios do [`AGENTS.md`](AGENTS.md) §3
+
+| Critério | Medição em `44a381f` | Mínimo |
+| :--- | :--- | :--- |
+| Trailers `Agent:` e `Spec:` | 313 de 313 commits sem merge (100%) | 80% |
+| Autoria (commits sem merge, `git shortlog -sn --no-merges 95c79b5..origin/main`) | Severino 201 (64,2%), Henrique 112 (35,8%) | 30% cada |
+| Frequência | Commits em 10 dias, de 10/11 a 26/11. Mediana de 123 linhas por commit (adicionadas + removidas no `git show --numstat`) | 2 dias/semana; mediana < 400 |
+| Cobertura do código novo | O job `backend` da CI falha abaixo de 70% (`diff-cover`) | 70% |
+| Segredos | `gitleaks git .`: nenhum achado nos 402 commits do histórico | zero |
+| CI | Verde no último commit da `main` | verde |
+| Produção | `https://trim-api-ujwo.onrender.com/health` devolve o commit `44a381f`, o mesmo da `main`; `https://trim-web.onrender.com` responde 200 | no ar |
+| Issues abertas | Nenhuma, além da #117, que esta atualização do README fecha | — |
 
 ---
 
@@ -680,19 +739,25 @@ SUM:
 ├── pytest.ini                 # pythonpath = . (para importar src.backend nos testes)
 ├── Procfile                   # Herdado da AP1
 ├── alembic.ini
-├── alembic/                   # Migrações do Alembic (scripts/migrate.py as aplica, ver #6)
+├── alembic/
+│   └── versions/              # Migrações 0001 a 0004 (scripts/migrate.py as aplica, ver #6)
 ├── .env.example               # Modelo do .env do backend
+├── .coveragerc               # Cobertura do pytest-cov (inclui o greenlet do SQLAlchemy assíncrono)
+├── .gitleaks.toml            # Exceções do gitleaks, restritas aos falsos positivos conhecidos
 ├── .github/
 │   └── workflows/
-│       └── ci.yml             # CI: backend (pytest + PostgreSQL) e frontend (testes + build)
+│       └── ci.yml             # CI: backend, frontend, gitleaks, trailers, dependências e duplicação
+├── docs/
+│   └── PASSAGEM.md            # Passagem do projeto para quem vai mantê-lo
 ├── SPEC/                      # Specs datadas
 │   ├── 2026-09-29-*.md        # AP1, somente leitura
-│   └── 2026-11-*.md           # AP2: processo, deploy, seed, fuso, cancelamento
+│   └── 2026-11-*.md           # AP2: uma spec por mudança (processo, deploy, correções, painel...)
 ├── scripts/
-│   └── custos.py              # Gera prompts/sessoes/CUSTOS.md e NOTAS.md (--check na CI)
+│   ├── custos.py              # Gera prompts/sessoes/CUSTOS.md e NOTAS.md (--check na CI)
+│   └── migrate.py             # Aplica as migrações (stamp 0001 em banco antigo); roda a cada deploy
 ├── src/
 │   ├── backend/
-│   │   ├── main.py            # App FastAPI, CORS, /health, criação das tabelas
+│   │   ├── main.py            # App FastAPI, CORS, /health (commit no ar); create_all só em development
 │   │   ├── config.py          # Configuração lida do .env (pydantic-settings)
 │   │   ├── database.py        # Engine e sessão assíncronas (SQLAlchemy)
 │   │   └── modules/           # Um pacote por módulo: models, schemas, service, router
@@ -701,9 +766,9 @@ SUM:
 │       ├── .env.example       # VITE_API_URL
 │       ├── package.json
 │       └── src/
-│           ├── pages/         # Páginas (Booking, Dashboard, Admin*, ...)
+│           ├── pages/         # Páginas (Booking, Dashboard, abas do painel admin, conta do cliente...)
 │           └── utils/         # Ex.: shopDate.ts (datas no fuso da barbearia) + teste
-├── tests/                     # pytest (testes da AP1 e testes novos da AP2)
+├── tests/                     # pytest: testes de integração por módulo e testes das correções da AP2
 └── prompts/
     └── sessoes/               # Transcrições das sessões com agentes
         ├── CUSTOS.md          # Tokens de cada sessão (gerado por scripts/custos.py)
@@ -746,15 +811,44 @@ custo em `CUSTOS.md`, gerado por `python scripts/custos.py`. Detalhes em [`AGENT
 
 #### 🆕 AP2 — fork
 
-Pull Requests mergeados na `main`:
+Os 67 PRs mergeados na `main` desde a linha de base da AP1 (`95c79b5`) até `44a381f` (27/11/2026),
+resumidos por tema. Cada PR aparece uma vez, no tema principal dele. A lista PR a PR, com o que
+cada um faz, está em [`docs/PASSAGEM.md`](docs/PASSAGEM.md#a-o-que-mudou).
 
-| PR | Data | O quê | Issues resolvidas |
+| Tema | PRs | O que mudou | Issues resolvidas |
 | :--- | :--- | :--- | :--- |
-| [#1](https://github.com/henriquelm-io/dsai-ap2-trim/pull/1) | 16/11/2026 | Organização da AP2: spec de processo, `AGENTS.md`, CI e sessões | — |
-| [#17](https://github.com/henriquelm-io/dsai-ap2-trim/pull/17) | 17/11/2026 | Protege e corrige a rota de seed | [#5](https://github.com/henriquelm-io/dsai-ap2-trim/issues/5), [#10](https://github.com/henriquelm-io/dsai-ap2-trim/issues/10) |
-| [#18](https://github.com/henriquelm-io/dsai-ap2-trim/pull/18) | 17/11/2026 | Specs da AP1 passam a ser somente leitura | — |
-| [#19](https://github.com/henriquelm-io/dsai-ap2-trim/pull/19) | 17/11/2026 | Deploy no Render (backend, frontend e PostgreSQL) | [#4](https://github.com/henriquelm-io/dsai-ap2-trim/issues/4) |
-| [#20](https://github.com/henriquelm-io/dsai-ap2-trim/pull/20) | 19/11/2026 | Agendamento no fuso da barbearia, com seletor de data e sem horários passados | [#12](https://github.com/henriquelm-io/dsai-ap2-trim/issues/12) |
-| [#25](https://github.com/henriquelm-io/dsai-ap2-trim/pull/25) | 19/11/2026 | Cliente só cancela o próprio agendamento, ativo e futuro | [#24](https://github.com/henriquelm-io/dsai-ap2-trim/issues/24) |
+| Segurança | #17, #25, #29, #31, #43, #78, #90 | A rota de seed fica protegida por `SEED_SECRET`. O cliente só cancela ou altera o próprio agendamento. Os tokens saem do log em produção. O python-jose foi trocado pelo PyJWT. A galeria ganhou permissões, e as dependências do backend não têm alerta high | #5, #10, #24, #26, #30, #42, #71, #77 |
+| Agendamento | #20, #48, #52, #79, #83 | Os horários seguem o fuso da barbearia, sem horário passado, dentro do expediente e fora do almoço. O visitante é validado, a duração fica entre 1 e 1440 minutos, e há um usuário Visitante único | #12, #23, #22, #57, #21, #69 |
+| Autenticação e usuários | #45, #46, #91 | Refresh token e logout que revoga a sessão. Perfil (`PUT /me`) e troca de senha. Reenvio da verificação, administração de usuários, limite de login e token de redefinição único | #35 |
+| Regras de negócio do backend | #47, #53, #81, #82, #84, #85, #86, #87, #88, #89, #93 | Validações e correção de erros 500 em serviços, barbeiros, despesas, fidelidade, produtos, financeiro, notificações, Trim Club e relatórios. Os pagamentos passam a gerar pontos de fidelidade. Os módulos vazios foram removidos | #37, #39, #9, #65, #73, #61, #59, #75, #64, #67, #13 |
+| Banco de dados | #94 | Migrações do Alembic (`scripts/migrate.py`), com stamp do banco de produção, e plano ilimitado no Trim Club | #6, #16 |
+| Painel do admin | #51, #100, #103, #105, #107, #109, #111, #113 | Abas de serviços, usuários (com senha temporária), barbeiros, despesas, galeria, Trim Club, fidelidade e estoque, todas ligadas à API | #49, #99, #102, #104, #106, #108, #110, #112 |
+| Conta do cliente | #50, #98 | Meus agendamentos, com cancelamento. O formulário de perfil não apaga mais o que foi digitado | #97 |
+| CI e testes | #34, #36, #38, #40, #44, #56, #58, #60, #62, #63, #66, #68, #70, #72, #74, #76, #95 | A CI ganhou `gitleaks`, trailers, `npm audit`, `pip-audit`, `jscpd`, `tsc` e `diff-cover`. Os testes gerados da AP1 foram trocados por testes de integração, módulo por módulo, e o gerador foi removido | #33, #41, #7, #8, #3 |
+| Deploy e ambiente | #19, #28, #80 | Deploy no Render pelo `render.yaml`. O backend sobe no console do Windows, e o Vite usa porta fixa | #4, #2, #11 |
+| Processo e documentação | #1, #18, #27, #32, #55, #92, #96, #101, #115, #116 | `AGENTS.md`, specs da AP1 somente leitura, README da AP2 e `CUSTOS.md`/`NOTAS.md` gerados por script. Também os registros das sessões e a passagem do projeto ao cliente ([`docs/PASSAGEM.md`](docs/PASSAGEM.md)) | #14, #54, #114 |
+
+### Funcionalidades novas da AP2
+
+- **Cliente:**
+  - Meus agendamentos, com cancelamento (só de agendamento próprio, ativo e futuro);
+  - assinatura do Trim Club na conta;
+  - pontos de fidelidade a cada pagamento.
+- **Painel do admin:** antes, as telas não estavam ligadas à API. Agora há abas ligadas a ela para:
+  - usuários, com senha temporária e troca obrigatória no primeiro login;
+  - barbeiros, com perfil, serviços, ativação e escala;
+  - serviços;
+  - despesas, com categorias;
+  - galeria, com moderação e filtro por tag na página pública;
+  - Trim Club, com planos e assinantes;
+  - fidelidade, com prêmios, carteiras e resgates;
+  - estoque, com histórico e movimentação.
+- **Conta:** refresh token, logout que revoga a sessão, perfil, troca de senha, reenvio da
+  verificação e limite de tentativas de login.
+- **Infraestrutura:**
+  - migrações do Alembic;
+  - deploy no Render com o commit em `/health`;
+  - CI com seis jobs;
+  - custo das sessões gerado por `scripts/custos.py`.
 
 O backlog completo está nas [issues](https://github.com/henriquelm-io/dsai-ap2-trim/issues).
