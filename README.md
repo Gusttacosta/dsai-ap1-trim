@@ -753,15 +753,44 @@ custo em `CUSTOS.md`, gerado por `python scripts/custos.py`. Detalhes em [`AGENT
 
 #### 🆕 AP2 — fork
 
-Pull Requests mergeados na `main`:
+Os 67 PRs mergeados na `main` desde a linha de base da AP1 (`95c79b5`) até `44a381f` (27/11/2026),
+resumidos por tema. Cada PR aparece uma vez, no tema principal dele. A lista PR a PR, com o que
+cada um faz, está em [`docs/PASSAGEM.md`](docs/PASSAGEM.md#a-o-que-mudou).
 
-| PR | Data | O quê | Issues resolvidas |
+| Tema | PRs | O que mudou | Issues resolvidas |
 | :--- | :--- | :--- | :--- |
-| [#1](https://github.com/henriquelm-io/dsai-ap2-trim/pull/1) | 16/11/2026 | Organização da AP2: spec de processo, `AGENTS.md`, CI e sessões | — |
-| [#17](https://github.com/henriquelm-io/dsai-ap2-trim/pull/17) | 17/11/2026 | Protege e corrige a rota de seed | [#5](https://github.com/henriquelm-io/dsai-ap2-trim/issues/5), [#10](https://github.com/henriquelm-io/dsai-ap2-trim/issues/10) |
-| [#18](https://github.com/henriquelm-io/dsai-ap2-trim/pull/18) | 17/11/2026 | Specs da AP1 passam a ser somente leitura | — |
-| [#19](https://github.com/henriquelm-io/dsai-ap2-trim/pull/19) | 17/11/2026 | Deploy no Render (backend, frontend e PostgreSQL) | [#4](https://github.com/henriquelm-io/dsai-ap2-trim/issues/4) |
-| [#20](https://github.com/henriquelm-io/dsai-ap2-trim/pull/20) | 19/11/2026 | Agendamento no fuso da barbearia, com seletor de data e sem horários passados | [#12](https://github.com/henriquelm-io/dsai-ap2-trim/issues/12) |
-| [#25](https://github.com/henriquelm-io/dsai-ap2-trim/pull/25) | 19/11/2026 | Cliente só cancela o próprio agendamento, ativo e futuro | [#24](https://github.com/henriquelm-io/dsai-ap2-trim/issues/24) |
+| Segurança | #17, #25, #29, #31, #43, #78, #90 | A rota de seed fica protegida por `SEED_SECRET`. O cliente só cancela ou altera o próprio agendamento. Os tokens saem do log em produção. O python-jose foi trocado pelo PyJWT. A galeria ganhou permissões, e as dependências do backend não têm alerta high | #5, #10, #24, #26, #30, #42, #71, #77 |
+| Agendamento | #20, #48, #52, #79, #83 | Os horários seguem o fuso da barbearia, sem horário passado, dentro do expediente e fora do almoço. O visitante é validado, a duração fica entre 1 e 1440 minutos, e há um usuário Visitante único | #12, #23, #22, #57, #21, #69 |
+| Autenticação e usuários | #45, #46, #91 | Refresh token e logout que revoga a sessão. Perfil (`PUT /me`) e troca de senha. Reenvio da verificação, administração de usuários, limite de login e token de redefinição único | #35 |
+| Regras de negócio do backend | #47, #53, #81, #82, #84, #85, #86, #87, #88, #89, #93 | Validações e correção de erros 500 em serviços, barbeiros, despesas, fidelidade, produtos, financeiro, notificações, Trim Club e relatórios. Os pagamentos passam a gerar pontos de fidelidade. Os módulos vazios foram removidos | #37, #39, #9, #65, #73, #61, #59, #75, #64, #67, #13 |
+| Banco de dados | #94 | Migrações do Alembic (`scripts/migrate.py`), com stamp do banco de produção, e plano ilimitado no Trim Club | #6, #16 |
+| Painel do admin | #51, #100, #103, #105, #107, #109, #111, #113 | Abas de serviços, usuários (com senha temporária), barbeiros, despesas, galeria, Trim Club, fidelidade e estoque, todas ligadas à API | #49, #99, #102, #104, #106, #108, #110, #112 |
+| Conta do cliente | #50, #98 | Meus agendamentos, com cancelamento. O formulário de perfil não apaga mais o que foi digitado | #97 |
+| CI e testes | #34, #36, #38, #40, #44, #56, #58, #60, #62, #63, #66, #68, #70, #72, #74, #76, #95 | A CI ganhou `gitleaks`, trailers, `npm audit`, `pip-audit`, `jscpd`, `tsc` e `diff-cover`. Os testes gerados da AP1 foram trocados por testes de integração, módulo por módulo, e o gerador foi removido | #33, #41, #7, #8, #3 |
+| Deploy e ambiente | #19, #28, #80 | Deploy no Render pelo `render.yaml`. O backend sobe no console do Windows, e o Vite usa porta fixa | #4, #2, #11 |
+| Processo e documentação | #1, #18, #27, #32, #55, #92, #96, #101, #115, #116 | `AGENTS.md`, specs da AP1 somente leitura, README da AP2 e `CUSTOS.md`/`NOTAS.md` gerados por script. Também os registros das sessões e a passagem do projeto ao cliente ([`docs/PASSAGEM.md`](docs/PASSAGEM.md)) | #14, #54, #114 |
+
+### Funcionalidades novas da AP2
+
+- **Cliente:**
+  - Meus agendamentos, com cancelamento (só de agendamento próprio, ativo e futuro);
+  - assinatura do Trim Club na conta;
+  - pontos de fidelidade a cada pagamento.
+- **Painel do admin:** antes, as telas não estavam ligadas à API. Agora há abas ligadas a ela para:
+  - usuários, com senha temporária e troca obrigatória no primeiro login;
+  - barbeiros, com perfil, serviços, ativação e escala;
+  - serviços;
+  - despesas, com categorias;
+  - galeria, com moderação e filtro por tag na página pública;
+  - Trim Club, com planos e assinantes;
+  - fidelidade, com prêmios, carteiras e resgates;
+  - estoque, com histórico e movimentação.
+- **Conta:** refresh token, logout que revoga a sessão, perfil, troca de senha, reenvio da
+  verificação e limite de tentativas de login.
+- **Infraestrutura:**
+  - migrações do Alembic;
+  - deploy no Render com o commit em `/health`;
+  - CI com seis jobs;
+  - custo das sessões gerado por `scripts/custos.py`.
 
 O backlog completo está nas [issues](https://github.com/henriquelm-io/dsai-ap2-trim/issues).
