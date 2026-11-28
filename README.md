@@ -481,7 +481,7 @@ README original que tratam da hospedagem (a URL pública e a linha de deploy da 
 
 ## 📈 Métricas da AP2
 
-Medidas em 26/11/2026 sobre a `origin/main` em `fecf54d` (merge do #113), contra a linha de base
+Medidas em 28/11/2026 sobre a `origin/main` em `44a381f` (merge do #116), contra a linha de base
 da AP1, `95c79b5`. A documentação para quem vai manter o projeto está em
 [`docs/PASSAGEM.md`](docs/PASSAGEM.md).
 
@@ -495,6 +495,11 @@ cloc --git --diff 95c79b5 origin/main \
   --not-match-f='(lock|\.min\.|CUSTOS\.md|NOTAS\.md)'
 ```
 
+No Windows, o `--git` do `cloc` falha, por causa do `tar` do Git Bash e da falta de `unzip`. Nesse
+caso, exporte as duas árvores com `git archive 95c79b5 | tar -x -C ap1` e
+`git archive origin/main | tar -x -C main`, e rode `cloc --diff ap1 main` com os mesmos filtros.
+A medição abaixo foi feita assim, com o `cloc` 2.12.
+
 `prompts/` só contém `prompts/sessoes/`, e o único lockfile versionado é
 `src/frontend/package-lock.json`.
 
@@ -502,14 +507,14 @@ cloc --git --diff 95c79b5 origin/main \
 | :--- | ---: | ---: | ---: |
 | TypeScript | 165 | 11.786 | 183 |
 | Python | 59 | 11.258 | 354 |
-| Markdown | 59 | 4.084 | 131 |
+| Markdown | 61 | 4.473 | 131 |
 | CSS | 2 | 353 | 0 |
 | YAML | 2 | 259 | 0 |
 | TOML | 1 | 24 | 0 |
 | JSON | 0 | 6 | 3 |
 | Text | 0 | 4 | 6 |
 | INI | 1 | 2 | 0 |
-| **Total** | **289** | **27.776** | **677** |
+| **Total** | **291** | **28.165** | **677** |
 
 O Markdown é quase todo specs (`SPEC/`) e documentação. Sem Markdown, JSON, YAML e Text (as
 linguagens que o comando de [`AGENTS.md`](AGENTS.md) §10 exclui), as linhas de código adicionadas
@@ -520,27 +525,27 @@ são 23.423. As 195.278 linhas de Python removidas são, na maior parte, os 13
 <summary>Saída completa do <code>cloc</code></summary>
 
 ```text
-github.com/AlDanial/cloc v 2.04  T=3.30 s (113.7 files/s, 123461.6 lines/s)
+github.com/AlDanial/cloc v 2.12  T=6.18 s (70.4 files/s, 66609.7 lines/s)
 -------------------------------------------------------------------------------
 Language                     files          blank        comment           code
 -------------------------------------------------------------------------------
 Python
- same                            0              0            573           3136
+ same                           25            144            699           3958
  modified                       48              0             76            354
  added                          59           4215            957          11258
  removed                        17          65071         104143         195278
 TypeScript
- same                            0              0              5            755
+ same                            3              6              5            828
  modified                       15              0              0            183
  added                         165           2341            699          11786
  removed                         0              1              4             55
 Markdown
- same                            0              0              0             58
+ same                           15            346              0           1133
  modified                        2              0              0            131
- added                          59            931              0           4084
- removed                         0              0              0             55
+ added                          61           1024              0           4473
+ removed                         0              0              0             54
 CSS
- same                            0              0              0            163
+ same                            7            146              4           1126
  modified                        2              0              1              0
  added                           2             59              7            353
  removed                         0              0              0              0
@@ -549,32 +554,47 @@ YAML
  modified                        0              0              0              0
  added                           2             34             27            259
  removed                         0              0              0              0
+JSON
+ same                            1              2              0             46
+ modified                        1              0              0              3
+ added                           0              0              0              6
+ removed                         0              0              0              0
+INI
+ same                            1             10              0             32
+ modified                        0              0              0              0
+ added                           1              0              0              2
+ removed                         0              0              0              0
 Text
  same                            0              0              0             23
  modified                        1              0              0              6
  added                           0              0              0              4
  removed                         0              0              0              0
-JSON
- same                            0              0              0             23
- modified                        1              0              0              3
- added                           0              0              0              6
+SVG
+ same                            4              0              0             27
+ modified                        0              0              0              0
+ added                           0              0              0              0
  removed                         0              0              0              0
 TOML
  same                            0              0              0              0
  modified                        0              0              0              0
  added                           1              5              9             24
  removed                         0              0              0              0
-INI
- same                            0              0              0              0
+Mako
+ same                            1              8              0             18
  modified                        0              0              0              0
- added                           1              0              0              2
+ added                           0              0              0              0
+ removed                         0              0              0              0
+HTML
+ same                            1              0              1             16
+ modified                        0              0              0              0
+ added                           0              0              0              0
  removed                         0              0              0              0
 -------------------------------------------------------------------------------
 SUM:
- same                            0              0            578           4158
+ same                           58            662            709           7207
  modified                       69              0             77            677
- added                         289           7585           1699          27776
- removed                        17          65072         104147         195388
+ added                         291           7678           1699          28165
+ removed                        17          65072         104147         195387
 -------------------------------------------------------------------------------
 ```
 
@@ -596,10 +616,23 @@ Resultado: **2,25% de linhas duplicadas** (596 de 26.544 linhas, 60 clones em 25
 
 ### Commits e PRs
 
-Desde `95c79b5` até `fecf54d`:
+Desde `95c79b5` até `44a381f`:
 
-- **393 commits** (`git rev-list --count 95c79b5..origin/main`): 307 sem contar merges e 86 merges.
-- **65 PRs mergeados** (`gh pr list --state merged`), do #1 ao #113.
+- **401 commits** (`git rev-list --count 95c79b5..origin/main`): 313 sem contar merges e 88 merges.
+- **67 PRs mergeados** (`gh pr list --state merged`), do #1 ao #116.
+
+### Demais critérios do [`AGENTS.md`](AGENTS.md) §3
+
+| Critério | Medição em `44a381f` | Mínimo |
+| :--- | :--- | :--- |
+| Trailers `Agent:` e `Spec:` | 313 de 313 commits sem merge (100%) | 80% |
+| Autoria (commits sem merge, `git shortlog -sn --no-merges 95c79b5..origin/main`) | Severino 201 (64,2%), Henrique 112 (35,8%) | 30% cada |
+| Frequência | Commits em 10 dias, de 10/11 a 26/11. Mediana de 123 linhas por commit (adicionadas + removidas no `git show --numstat`) | 2 dias/semana; mediana < 400 |
+| Cobertura do código novo | O job `backend` da CI falha abaixo de 70% (`diff-cover`) | 70% |
+| Segredos | `gitleaks git .`: nenhum achado nos 402 commits do histórico | zero |
+| CI | Verde no último commit da `main` | verde |
+| Produção | `https://trim-api-ujwo.onrender.com/health` devolve o commit `44a381f`, o mesmo da `main`; `https://trim-web.onrender.com` responde 200 | no ar |
+| Issues abertas | Nenhuma, além da #117, que esta atualização do README fecha | — |
 
 ---
 
