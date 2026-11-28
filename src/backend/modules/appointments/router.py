@@ -11,9 +11,9 @@ from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.backend.database import get_db
+from src.backend.modules.auth.guest import guest_user_id
 from src.backend.modules.auth.dependencies import get_current_admin, get_current_barber_or_admin, get_current_user
 from src.backend.modules.auth.models import User
-from src.backend.modules.appointments.models import AppointmentStatus
 from src.backend.modules.appointments.schemas import (
     AppointmentCreateRequest,
     AppointmentResponse,
@@ -21,7 +21,7 @@ from src.backend.modules.appointments.schemas import (
     AvailabilityResponse,
     GuestAppointmentCreateRequest,
 )
-from src.backend.modules.appointments.service import AppointmentService
+from src.backend.modules.appointments.service import AppointmentService, BarberUnavailable
 
 router = APIRouter()
 
@@ -31,12 +31,17 @@ router = APIRouter()
 async def get_availability(
     barber_id: uuid.UUID = Query(..., description="ID do barbeiro"),
     target_date: date = Query(..., description="Data alvo (YYYY-MM-DD)"),
-    duration_minutes: int = Query(..., description="Duração total do(s) serviço(s) em minutos"),
+    duration_minutes: int = Query(
+        ..., ge=1, le=1440, description="Duração total do(s) serviço(s) em minutos (1 a 1440, #57)"
+    ),
     db: AsyncSession = Depends(get_db)
 ):
     """Retorna os horários disponíveis (slots) para um barbeiro em uma data."""
     service = AppointmentService(db)
-    slots = await service.get_availability(barber_id, target_date, duration_minutes)
+    try:
+        slots = await service.get_availability(barber_id, target_date, duration_minutes)
+    except BarberUnavailable as e:
+        raise HTTPException(status_code=404, detail=str(e))
     
     return AvailabilityResponse(
         date=str(target_date),
@@ -65,20 +70,9 @@ async def create_guest_appointment(
     data: GuestAppointmentCreateRequest,
     db: AsyncSession = Depends(get_db),
 ):
-    """(Visitante) Cria um agendamento e gera um usuário fantasma."""
-    from src.backend.modules.auth.models import User, UserRole
-    from src.backend.modules.auth.security import get_password_hash
-    
-    # Criar usuário fantasma
-    dummy_email = f"guest_{uuid.uuid4().hex[:8]}@trim.local"
-    new_user = User(
-        email=dummy_email,
-        hashed_password=get_password_hash(uuid.uuid4().hex),
-        full_name=data.guest_name,
-        role=UserRole.CLIENT,
-    )
-    db.add(new_user)
-    await db.flush()
+    """(Visitante) Cria um agendamento no nome do usuário Visitante; o nome fica nas observações."""
+    # Um único usuário para todos os visitantes, em vez de um guest_<hex> por agendamento (#21).
+    guest_id = await guest_user_id(db)
 
     # Montar request normal
     app_req = AppointmentCreateRequest(
@@ -90,7 +84,7 @@ async def create_guest_appointment(
 
     service = AppointmentService(db)
     try:
-        appointment = await service.create_appointment(new_user.id, app_req)
+        appointment = await service.create_appointment(guest_id, app_req)
         await db.commit()
         return appointment
     except ValueError as e:
@@ -114,14 +108,14 @@ async def cancel_my_appointment(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    """(Cliente) Cancela um agendamento próprio (apenas se for futuro)."""
-    # Em uma versão avançada, faríamos a checagem se o agendamento pertence
-    # ao usuário e se é de fato no futuro.
+    """(Cliente) Cancela um agendamento próprio, pendente ou confirmado, que ainda não começou."""
     service = AppointmentService(db)
-    appointment = await service.update_status(appointment_id, AppointmentStatus.CANCELLED)
-    if not appointment:
-        raise HTTPException(status_code=404, detail="Agendamento não encontrado.")
-    return appointment
+    try:
+        return await service.cancel_by_client(appointment_id, current_user.id)
+    except LookupError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
 
 
 # ── Endpoints Autenticados (Barbeiro) ────────────────────
@@ -154,9 +148,11 @@ async def update_appointment_status(
     db: AsyncSession = Depends(get_db),
     barber_user: User = Depends(get_current_barber_or_admin),
 ):
-    """(Barbeiro/Admin) Atualiza o status de um agendamento (ex: COMPLETED, NO_SHOW)."""
+    """(Barbeiro/Admin) Muda o status: barbeiro só nos próprios agendamentos, e só transições válidas."""
     service = AppointmentService(db)
-    appointment = await service.update_status(appointment_id, data.status)
-    if not appointment:
-        raise HTTPException(status_code=404, detail="Agendamento não encontrado.")
-    return appointment
+    try:
+        return await service.change_status_by_staff(appointment_id, data.status, barber_user)
+    except LookupError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))

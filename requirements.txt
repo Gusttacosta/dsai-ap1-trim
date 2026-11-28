@@ -3,7 +3,9 @@
 # ============================================
 
 # Web Framework
-fastapi==0.115.12
+fastapi==0.165.0
+# Fixado à parte: o fastapi 0.115 trazia o starlette 0.46, com 4 alertas high (#77)
+starlette==1.10.0
 uvicorn[standard]==0.34.3
 
 # Database
@@ -13,9 +15,9 @@ psycopg2-binary==2.9.10
 asyncpg==0.30.0
 
 # Authentication
-python-jose[cryptography]==3.4.0
+PyJWT==2.15.1
 passlib[bcrypt]==1.7.4
-python-multipart==0.0.20
+python-multipart==0.0.34
 
 # Validation & Settings
 pydantic==2.11.3
@@ -26,11 +28,13 @@ email-validator
 # (included in fastapi)
 
 # Utilities
-python-dotenv==1.1.0
+python-dotenv==1.2.4
+# Base de fusos para zoneinfo (o Windows não traz uma; ver #2 e #12)
+tzdata==2026.6
 
 # Testing
-pytest==8.4.1
-pytest-asyncio==0.26.0
+pytest==9.2.0
+pytest-asyncio==1.5.0
 httpx==0.28.1
 
 # Dev tools

@@ -5,25 +5,52 @@ Regras de negócio de PDV: checkout de agendamentos, produtos e geração de com
 """
 
 import uuid
-from datetime import datetime, timezone
+from datetime import date, datetime, time, timedelta, timezone
 from decimal import Decimal
 
-from sqlalchemy import select, update
+from sqlalchemy import func, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from src.backend.modules.appointments.models import Appointment, AppointmentStatus
+from src.backend.modules.appointments.service import AppointmentService
+from src.backend.modules.auth.models import User
 from src.backend.modules.barbers.models import Barber
 from src.backend.modules.finance.models import BarberCommission, PaymentMethod, Transaction, TransactionType
 from src.backend.modules.finance.schemas import AppointmentCheckoutRequest, ProductCheckoutRequest
+from src.backend.modules.loyalty.service import award_points
 from src.backend.modules.products.models import MovementType
 from src.backend.modules.products.service import ProductService
 from src.backend.modules.products.schemas import InventoryMovementRequest
+from src.backend.modules.subscriptions.models import SubscriptionStatus, UserSubscription
+
+
+NOT_CONFIRMED_ERROR = "Só é possível cobrar um agendamento confirmado."
+NOT_STARTED_ERROR = "Só é possível cobrar depois do início do agendamento."
+NO_SUBSCRIPTION_ERROR = "O cliente não tem assinatura ativa do Trim Club."
+
+
+class NotFound(LookupError):
+    """Agendamento ou cliente inexistente (vira 404 na rota, #59)."""
 
 
 class FinanceService:
     def __init__(self, db: AsyncSession):
         self.db = db
+
+    def _clock(self) -> AppointmentService:
+        # Mesmo "agora" e mesmo fuso da agenda (os testes fixam utc_now do módulo de agendamentos).
+        return AppointmentService(self.db)
+
+    async def _has_active_subscription(self, user_id: uuid.UUID) -> bool:
+        today = self._clock().local_today()
+        stmt = select(UserSubscription.id).where(
+            UserSubscription.user_id == user_id,
+            UserSubscription.status == SubscriptionStatus.ACTIVE,
+            UserSubscription.start_date <= today,
+            UserSubscription.end_date >= today,
+        )
+        return (await self.db.execute(stmt)).first() is not None
 
     async def checkout_appointment(self, appointment_id: uuid.UUID, data: AppointmentCheckoutRequest) -> Transaction:
         """Processa o pagamento de um agendamento e gera comissão."""
@@ -32,13 +59,25 @@ class FinanceService:
         appointment = (await self.db.execute(stmt)).scalar_one_or_none()
         
         if not appointment:
-            raise ValueError("Agendamento não encontrado.")
+            raise NotFound("Agendamento não encontrado.")
             
         if appointment.status == AppointmentStatus.COMPLETED:
             raise ValueError("Este agendamento já foi finalizado e cobrado.")
         
         if appointment.status in [AppointmentStatus.CANCELLED, AppointmentStatus.NO_SHOW]:
             raise ValueError(f"Não é possível cobrar um agendamento com status {appointment.status.value}.")
+
+        # Mesmas regras da conclusão pelo barbeiro (#26): só confirmado e já iniciado (#59).
+        if appointment.status != AppointmentStatus.CONFIRMED:
+            raise ValueError(NOT_CONFIRMED_ERROR)
+        if appointment.start_datetime > self._clock().now():
+            raise ValueError(NOT_STARTED_ERROR)
+
+        # Crédito do Trim Club só para quem tem assinatura ativa hoje (#59).
+        if data.payment_method == PaymentMethod.TRIM_CLUB_CREDIT and not await self._has_active_subscription(
+            appointment.client_id
+        ):
+            raise ValueError(NO_SUBSCRIPTION_ERROR)
 
         # 2. Busca o barbeiro para ver a taxa de comissão
         stmt_barber = select(Barber).where(Barber.id == appointment.barber_id)
@@ -62,6 +101,8 @@ class FinanceService:
         )
         self.db.add(transaction)
         await self.db.flush()
+        # Pontos de fidelidade pelo valor pago; o crédito do Trim Club (0,00) não gera pontos (#13).
+        await award_points(self.db, appointment.client_id, amount, "atendimento concluído")
 
         # 5. Cria a Comissão
         commission = BarberCommission(
@@ -85,6 +126,11 @@ class FinanceService:
         
         if not product:
             raise ValueError("Produto não encontrado.")
+        if not product.is_active:
+            raise ValueError("Produto desativado não pode ser vendido.")
+        # Antes, um cliente inexistente só estourava a FK depois da baixa do estoque (#59).
+        if data.user_id is not None and await self.db.get(User, data.user_id) is None:
+            raise NotFound("Cliente não encontrado.")
 
         amount = product.price * data.quantity
         if data.payment_method == PaymentMethod.TRIM_CLUB_CREDIT:
@@ -99,9 +145,8 @@ class FinanceService:
             movement_type=MovementType.SALE,
             notes="Venda no balcão"
         )
-        await product_service.register_movement(product.id, admin_user_id, movement)
-        
-        # O método acima já dá commit, então continuamos numa nova "fase"
+        # Sem commit: a baixa do estoque e a transação entram juntas, ou nenhuma entra (#59).
+        await product_service.register_movement(product.id, admin_user_id, movement, commit=False)
         
         # 2. Cria a Transação
         transaction = Transaction(
@@ -112,15 +157,44 @@ class FinanceService:
             user_id=data.user_id
         )
         self.db.add(transaction)
+        # Compra com o cliente identificado também pontua (#13).
+        await award_points(self.db, data.user_id, amount, "compra na loja")
         await self.db.commit()
         await self.db.refresh(transaction)
         return transaction
 
-    async def list_transactions(self) -> list[Transaction]:
-        """Lista todas as transações."""
-        stmt = select(Transaction).order_by(Transaction.created_at.desc())
+    async def list_transactions(self, start_date: date | None = None, end_date: date | None = None) -> list[Transaction]:
+        """Lista as transações, com filtro opcional por dia no fuso da barbearia (#59)."""
+        stmt = select(Transaction)
+        clock = self._clock()
+        if start_date:
+            stmt = stmt.where(Transaction.created_at >= clock._local_to_utc(start_date, time.min))
+        if end_date:
+            stmt = stmt.where(Transaction.created_at < clock._local_to_utc(end_date + timedelta(days=1), time.min))
+        stmt = stmt.order_by(Transaction.created_at.desc())
         result = await self.db.execute(stmt)
         return list(result.scalars().all())
+
+    async def pending_commissions_by_barber(self) -> list[dict]:
+        """(Admin) Comissões pendentes agrupadas por barbeiro, do maior valor para o menor (#59)."""
+        stmt = (
+            select(
+                Barber.id,
+                User.full_name,
+                func.count(BarberCommission.id),
+                func.coalesce(func.sum(BarberCommission.amount), 0),
+            )
+            .join(Barber, BarberCommission.barber_id == Barber.id)
+            .join(User, Barber.user_id == User.id)
+            .where(BarberCommission.is_paid.is_(False))
+            .group_by(Barber.id, User.full_name)
+            .order_by(func.sum(BarberCommission.amount).desc(), User.full_name)
+        )
+        rows = (await self.db.execute(stmt)).all()
+        return [
+            {"barber_id": bid, "barber_name": name, "pending_count": n, "pending_amount": Decimal(total)}
+            for bid, name, n, total in rows
+        ]
 
     async def list_commissions_by_barber(self, barber_id: uuid.UUID, only_pending: bool = False) -> list[BarberCommission]:
         """Lista comissões de um barbeiro específico."""

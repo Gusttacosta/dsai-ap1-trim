@@ -75,3 +75,96 @@
   background: rgba(239, 68, 68, 0.2);
   color: var(--color-danger);
 }
+
+/* Pergunta do ConfirmButton, no lugar do botão. */
+.confirmQuestion {
+  color: #fff;
+  margin-right: 0.5rem;
+}
+
+/* Painel de usuários (SPEC/2026-11-25-admin-usuarios.md) */
+.filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  align-items: center;
+  margin-bottom: 1rem;
+}
+
+.filters input,
+.filters select,
+.table select,
+.table input[type="time"] {
+  padding: 0.5rem 0.75rem;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--color-border);
+  background: var(--color-bg);
+  color: var(--color-text-primary);
+  font: inherit;
+}
+
+.filters input {
+  flex: 1;
+  min-width: 200px;
+}
+
+.pagination {
+  display: flex;
+  gap: 1rem;
+  align-items: center;
+  justify-content: flex-end;
+  margin-top: 1rem;
+  color: var(--color-text-secondary);
+}
+
+.secret {
+  font-family: ui-monospace, monospace;
+  font-size: 1.4rem;
+  letter-spacing: 0.1em;
+  color: var(--color-primary);
+  user-select: all;
+}
+
+/* Painel de barbeiros (SPEC/2026-11-26-painel-barbeiros.md) */
+.checks {
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  padding: 0.75rem 1rem;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem 1.5rem;
+  color: var(--color-text-secondary);
+}
+
+.checks legend {
+  padding: 0 0.35rem;
+  font-size: 0.9rem;
+}
+
+.table input[type="time"]:disabled {
+  opacity: 0.4;
+}
+
+/* Estoque no painel (SPEC/2026-11-26-painel-estoque.md): o aviso na linha e o resumo no topo. */
+.stockWarning {
+  margin-left: 0.5rem;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--color-danger);
+}
+
+.stockAlert {
+  margin: 0 0 1.5rem;
+  padding: 0.75rem 1rem;
+  border: 1px solid rgba(239, 68, 68, 0.4);
+  border-radius: var(--radius-md);
+  background: rgba(239, 68, 68, 0.08);
+  color: var(--color-danger);
+}
+
+.sectionHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin: 2rem 0 1rem;
+}

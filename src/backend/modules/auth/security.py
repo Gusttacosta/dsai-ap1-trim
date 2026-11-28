@@ -7,7 +7,7 @@ Funções utilitárias para segurança: hash de senha, verificação e manipula�
 from datetime import datetime, timedelta, timezone
 from typing import Any
 
-from jose import JWTError, jwt
+import jwt
 import bcrypt
 
 from src.backend.config import settings
@@ -50,29 +50,32 @@ def create_access_token(data: dict, role: UserRole) -> tuple[str, int]:
     return encoded_jwt, expire_minutes * 60
 
 
-def create_refresh_token(data: dict, role: UserRole) -> tuple[str, int]:
+def refresh_token_lifetime(role: UserRole) -> timedelta:
+    """Validade do refresh token: 7 dias para cliente, 30 dias para barbeiro e admin."""
+    return timedelta(days=7 if role == UserRole.CLIENT else 30)
+
+
+def create_refresh_token(
+    data: dict, role: UserRole, jti: str | None = None, expire: datetime | None = None
+) -> tuple[str, int]:
     """
     Cria um JWT refresh token.
-    A duração depende do role:
-    - Client: 7 dias
-    - Barber / Admin: 30 dias
+    A duração depende do role (ver `refresh_token_lifetime`).
+    `jti` é o id da linha em `refresh_tokens`, e `expire` o vencimento gravado nela.
     Retorna uma tupla com o token e o tempo de expiração em segundos.
     """
     to_encode = data.copy()
-    
-    if role == UserRole.CLIENT:
-        expire_days = 7
-    else:
-        expire_days = 30
-        
-    expire = datetime.now(timezone.utc) + timedelta(days=expire_days)
+    lifetime = refresh_token_lifetime(role)
+    expire = expire or datetime.now(timezone.utc) + lifetime
     to_encode.update({"exp": expire, "type": "refresh"})
+    if jti is not None:
+        to_encode["jti"] = jti
     
     encoded_jwt = jwt.encode(
         to_encode, settings.secret_key, algorithm=settings.algorithm
     )
     
-    return encoded_jwt, expire_days * 24 * 60 * 60
+    return encoded_jwt, int(lifetime.total_seconds())
 
 
 def decode_token(token: str) -> dict[str, Any] | None:
@@ -85,5 +88,5 @@ def decode_token(token: str) -> dict[str, Any] | None:
             token, settings.secret_key, algorithms=[settings.algorithm]
         )
         return payload
-    except JWTError:
+    except jwt.PyJWTError:
         return None

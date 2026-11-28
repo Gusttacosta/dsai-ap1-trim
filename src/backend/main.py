@@ -4,6 +4,7 @@ Trim — FastAPI Application Entry Point
 Configura o app FastAPI com CORS, routers e lifecycle events.
 """
 
+import logging
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
@@ -14,22 +15,48 @@ from src.backend.config import settings
 
 from src.backend.database import engine, Base
 
+logger = logging.getLogger(__name__)
+LOG_HANDLER_NAME = "trim-backend"
+
+
+def configure_logging() -> None:
+    """Mostra no terminal os logs INFO do backend, no formato do uvicorn.
+
+    O uvicorn só configura os loggers dele; sem isto, `logger.info` não aparece. O handler é
+    adicionado uma vez só, e o logger raiz não muda.
+    """
+    app_logger = logging.getLogger("src.backend")
+    app_logger.setLevel(logging.INFO)
+    if not any(h.get_name() == LOG_HANDLER_NAME for h in app_logger.handlers):
+        handler = logging.StreamHandler()
+        handler.set_name(LOG_HANDLER_NAME)
+        handler.setFormatter(logging.Formatter("%(levelname)s:     %(message)s"))
+        app_logger.addHandler(handler)
+
+
+configure_logging()
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Lifecycle hook: executa na inicialização e no shutdown do app."""
     # ── Startup ──
-    print(f"🚀 {settings.app_name} backend starting...")
-    print(f"   Environment: {settings.app_env}")
-    print(f"   Debug: {settings.debug}")
-    
-    print("🛠️ Verificando/criando tabelas no banco de dados...")
-    async with engine.begin() as conn:
-        await conn.run_sync(Base.metadata.create_all)
-    print("✅ Banco de dados pronto!")
-    
+    # Mensagens só em ASCII: o console do Windows (cp1252) não codifica emojis (#2).
+    logger.info(
+        "%s backend iniciando (ambiente: %s, debug: %s)",
+        settings.app_name, settings.app_env, settings.debug,
+    )
+    if settings.is_development:
+        # Conveniência local. Fora do desenvolvimento, o esquema vem só das migrações do Alembic,
+        # aplicadas por scripts/migrate.py antes do uvicorn (#6).
+        logger.info("Verificando/criando tabelas no banco de dados (desenvolvimento)...")
+        async with engine.begin() as conn:
+            await conn.run_sync(Base.metadata.create_all)
+        logger.info("Banco de dados pronto.")
+
     yield
     # ── Shutdown ──
-    print(f"👋 {settings.app_name} backend shutting down...")
+    logger.info("%s backend encerrando.", settings.app_name)
 
 
 app = FastAPI(
@@ -54,11 +81,12 @@ app.add_middleware(
 # ── Health Check ─────────────────────────────────────────
 @app.get("/health", tags=["System"])
 async def health_check():
-    """Verifica se o backend está rodando."""
+    """Verifica se o backend está rodando e informa o commit em produção."""
     return {
         "status": "healthy",
         "app": settings.app_name,
         "version": "0.1.0",
+        "commit": settings.render_git_commit,
     }
 
 

@@ -1,14 +1,19 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import api from '../api';
 import styles from './TrimClub.module.css';
+import { planBenefits } from '../utils/trimClub';
 
-interface Plan {
+// Campos de GET /subscriptions/plans. A tela lia `price` e `billing_cycle`, que a API não tem, e
+// mostrava "R$ NaN/ano" (SPEC/2026-11-25-alembic-migracoes.md).
+export interface Plan {
   id: string;
   name: string;
-  description: string;
-  price: number;
-  billing_cycle: string;
+  description: string | null;
+  monthly_price: string | number;
+  /** null = ilimitado (#16) */
+  included_cuts: number | null;
+  included_shaves: number | null;
 }
 
 const TrimClub = () => {
@@ -64,12 +69,19 @@ const TrimClub = () => {
             {index === 1 && <div className={styles.popularBadge}>MAIS ASSINADO</div>}
             <div className={styles.planName}>{plan.name}</div>
             <div className={styles.planPrice}>
-              R$ {Number(plan.price).toFixed(2)}<span>/{plan.billing_cycle === 'MONTHLY' ? 'mês' : 'ano'}</span>
+              R$ {Number(plan.monthly_price).toFixed(2).replace('.', ',')}<span>/mês</span>
             </div>
             <ul className={styles.featureList}>
-              {plan.description.split(',').map((feature, i) => (
-                <li key={i}>{feature.trim()}</li>
+              {planBenefits(plan).map((benefit) => (
+                <li key={benefit}>{benefit}</li>
               ))}
+              {(plan.description ?? '')
+                .split(',')
+                .map((feature) => feature.trim())
+                .filter(Boolean)
+                .map((feature, i) => (
+                  <li key={i}>{feature}</li>
+                ))}
             </ul>
             <button className={styles.subscribeBtn} onClick={() => handleSubscribe(plan.id)}>
               Assinar {plan.name}

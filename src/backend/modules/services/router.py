@@ -19,7 +19,7 @@ from src.backend.modules.services.schemas import (
     ServiceUpdateRequest,
     ServiceWithBarbersResponse,
 )
-from src.backend.modules.services.service import CatalogService
+from src.backend.modules.services.service import CatalogService, LinkRefused
 
 router = APIRouter()
 
@@ -30,6 +30,18 @@ async def list_services(db: AsyncSession = Depends(get_db)):
     """Retorna todos os serviços disponíveis (is_active=True)."""
     service = CatalogService(db)
     return await service.list_active_services()
+
+
+@router.get("/admin", response_model=list[ServiceResponse], summary="(Admin) Lista todos os serviços")
+async def list_all_services(
+    db: AsyncSession = Depends(get_db),
+    admin: User = Depends(get_current_admin),
+):
+    """(Admin) Lista os serviços ativos e desativados, para gestão e reativação.
+
+    Declarada antes de /{service_id}: senão "admin" seria lido como id do serviço.
+    """
+    return await CatalogService(db).list_all_services()
 
 
 @router.get("/{service_id}", response_model=ServiceWithBarbersResponse, summary="Detalhes de um serviço e quem o realiza")
@@ -119,7 +131,10 @@ async def link_barber_to_service(
 ):
     """(Admin) Vincula um serviço a um barbeiro."""
     service = CatalogService(db)
-    success = await service.link_barber_to_service(barber_id, service_id)
+    try:
+        success = await service.link_barber_to_service(barber_id, service_id)
+    except LinkRefused as e:
+        raise HTTPException(status_code=400, detail=str(e))
     if not success:
         # Aqui pode ser falha por FK inexistente ou porque já existe o vínculo.
         # Retornamos 400 para manter simples e amigável conforme a Spec.

@@ -17,10 +17,13 @@ from src.backend.database import Base
 config = context.config
 
 # Override da URL do banco com a do .env (sync para migrations)
-config.set_main_option("sqlalchemy.url", settings.database_url_sync)
+# "%" é interpolação para o configparser: uma senha com "%" derrubaria a migração no deploy.
+config.set_main_option("sqlalchemy.url", settings.database_url_sync.replace("%", "%%"))
 
-if config.config_file_name is not None:
-    fileConfig(config.config_file_name)
+# Logging do alembic.ini só no CLI. Chamado por scripts/migrate.py ou pelos testes (com a conexão em
+# config.attributes), o fileConfig desligaria os loggers da aplicação e poria a raiz em WARN (#6).
+if config.config_file_name is not None and "connection" not in config.attributes:
+    fileConfig(config.config_file_name, disable_existing_loggers=False)
 
 # ── Target metadata (todos os models) ───────────────────
 # Importar todos os models aqui para que o Alembic os detecte
@@ -57,6 +60,14 @@ def run_migrations_offline() -> None:
 
 def run_migrations_online() -> None:
     """Run migrations in 'online' mode."""
+    # scripts/migrate.py (e os testes) podem passar a própria conexão (#6).
+    connection = config.attributes.get("connection")
+    if connection is not None:
+        context.configure(connection=connection, target_metadata=target_metadata)
+        with context.begin_transaction():
+            context.run_migrations()
+        return
+
     ini_section = config.get_section(config.config_ini_section, {})
     ini_section["sqlalchemy.url"] = settings.database_url_sync
     

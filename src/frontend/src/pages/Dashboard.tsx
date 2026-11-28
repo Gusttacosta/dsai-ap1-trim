@@ -1,12 +1,21 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate, Routes, Route, Link, useLocation } from 'react-router-dom';
 import styles from './Dashboard.module.css';
-import api from '../api';
+import api, { logout } from '../api';
+import { canFinish } from '../utils/appointmentStatus';
+import { CHANGE_PASSWORD_PATH } from '../utils/afterLogin';
 
 import AdminStore from './AdminStore';
 import AdminServices from './AdminServices';
 import AdminFinance from './AdminFinance';
+import AdminExpenses from './AdminExpenses';
 import AdminNotifications from './AdminNotifications';
+import AdminUsers from './AdminUsers';
+import AdminBarbers from './AdminBarbers';
+import AdminGallery from './AdminGallery';
+import AdminTrimClub from './AdminTrimClub';
+import AdminLoyalty from './AdminLoyalty';
+import Account from './Account';
 
 const Overview = ({ user }: { user: any }) => {
   const [queue, setQueue] = useState<any[]>([]);
@@ -89,7 +98,7 @@ const Overview = ({ user }: { user: any }) => {
                     <h4>{item.notes ? item.notes : 'Cliente'}</h4>
                     <p>{item.start_datetime.substring(11, 16)} • {item.status}</p>
                   </div>
-                  {item.status !== 'completed' && item.status !== 'cancelled' && (
+                  {canFinish(item) && (
                     <button 
                       onClick={() => {
                         api.put(`/appointments/${item.id}/status`, { status: "completed" })
@@ -97,7 +106,9 @@ const Overview = ({ user }: { user: any }) => {
                             setAppointments(prev => prev.map(a => a.id === item.id ? { ...a, status: 'completed' } : a));
                             setStats((s: any) => ({ ...s, completed_appointments: s.completed_appointments + 1, total_revenue: s.total_revenue + Number(item.total_price) }));
                           })
-                          .catch(console.error);
+                          .catch((err: any) => {
+                            alert(`Não foi possível finalizar: ${err.response?.data?.detail || 'erro desconhecido.'}`);
+                          });
                       }}
                       style={{ padding: '0.5rem 1rem', background: 'var(--color-primary)', color: '#000', borderRadius: '8px', fontWeight: 'bold', border: 'none', cursor: 'pointer' }}
                     >
@@ -123,6 +134,11 @@ const Dashboard = () => {
     const fetchUser = async () => {
       try {
         const response = await api.get('/auth/me');
+        // Senha temporária pendente: o resto da API responde 403 até a troca (#99).
+        if (response.data.must_change_password) {
+          navigate(CHANGE_PASSWORD_PATH, { replace: true });
+          return;
+        }
         setUser(response.data);
       } catch (err) {
         localStorage.removeItem('token');
@@ -136,12 +152,15 @@ const Dashboard = () => {
     return `${styles.navItem} ${location.pathname === path ? styles.active : ''}`;
   };
 
-  const handleLogout = () => {
-    localStorage.removeItem('token');
+  const handleLogout = async () => {
+    await logout();
     navigate('/login');
   };
 
   if (!user) return <div style={{ padding: '2rem' }}>Carregando...</div>;
+
+  // Admin e barbeiro enviam fotos para a galeria (SPEC/2026-11-26-painel-galeria.md).
+  const sendsPhotos = user.role === 'admin' || user.role === 'barber';
 
   return (
     <div className={styles.dashboardContainer}>
@@ -155,10 +174,17 @@ const Dashboard = () => {
           <>
             <Link to="/admin/loja" className={getNavClass('/admin/loja')}>Loja & Estoque</Link>
             <Link to="/admin/servicos" className={getNavClass('/admin/servicos')}>Serviços</Link>
+            <Link to="/admin/barbeiros" className={getNavClass('/admin/barbeiros')}>Barbeiros</Link>
             <Link to="/admin/financeiro" className={getNavClass('/admin/financeiro')}>Financeiro</Link>
+            <Link to="/admin/despesas" className={getNavClass('/admin/despesas')}>Despesas</Link>
             <Link to="/admin/notificacoes" className={getNavClass('/admin/notificacoes')}>Notificações</Link>
+            <Link to="/admin/usuarios" className={getNavClass('/admin/usuarios')}>Usuários</Link>
+            <Link to="/admin/trim-club" className={getNavClass('/admin/trim-club')}>Trim Club</Link>
+            <Link to="/admin/fidelidade" className={getNavClass('/admin/fidelidade')}>Fidelidade</Link>
           </>
         )}
+        {sendsPhotos && <Link to="/admin/galeria" className={getNavClass('/admin/galeria')}>Galeria</Link>}
+        <Link to="/admin/conta" className={getNavClass('/admin/conta')}>Minha conta</Link>
         <div style={{ flex: 1 }} />
         <button onClick={handleLogout} style={{ padding: '1rem', background: 'transparent', border: '1px solid var(--color-border)', color: '#fff', cursor: 'pointer', borderRadius: '8px' }}>Sair</button>
       </div>
@@ -167,12 +193,19 @@ const Dashboard = () => {
       <div className={styles.mainArea}>
         <Routes>
           <Route path="/" element={<Overview user={user} />} />
+          <Route path="/conta" element={<Account loginPath="/admin/login" />} />
+          {sendsPhotos && <Route path="/galeria" element={<AdminGallery isAdmin={user.role === 'admin'} />} />}
           {user.role === 'admin' && (
             <>
               <Route path="/loja" element={<AdminStore />} />
               <Route path="/servicos" element={<AdminServices />} />
+              <Route path="/barbeiros" element={<AdminBarbers />} />
               <Route path="/financeiro" element={<AdminFinance />} />
+              <Route path="/despesas" element={<AdminExpenses />} />
               <Route path="/notificacoes" element={<AdminNotifications />} />
+              <Route path="/usuarios" element={<AdminUsers currentUserId={user.id} />} />
+              <Route path="/trim-club" element={<AdminTrimClub />} />
+              <Route path="/fidelidade" element={<AdminLoyalty />} />
             </>
           )}
         </Routes>

@@ -5,6 +5,8 @@ Centraliza todas as configurações do backend via variáveis de ambiente.
 Usa pydantic-settings para validação e tipagem automática.
 """
 
+from typing import Literal
+
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -28,7 +30,7 @@ class Settings(BaseSettings):
 
     @property
     def database_url_async(self) -> str:
-        """Deriva a URL assíncrona a partir da URL padrão fornecida pelo Railway."""
+        """Deriva a URL assíncrona a partir da DATABASE_URL (ex.: postgresql:// do Render)."""
         url = self.database_url
         if url.startswith("postgres://"):
             url = url.replace("postgres://", "postgresql+asyncpg://", 1)
@@ -38,7 +40,7 @@ class Settings(BaseSettings):
 
     @property
     def database_url_sync(self) -> str:
-        """Deriva a URL síncrona a partir da URL padrão fornecida pelo Railway."""
+        """Deriva a URL síncrona a partir da DATABASE_URL (ex.: postgresql:// do Render)."""
         url = self.database_url
         if url.startswith("postgres://"):
             url = url.replace("postgres://", "postgresql+psycopg2://", 1)
@@ -52,9 +54,33 @@ class Settings(BaseSettings):
     secret_key: str = "dev-secret-change-in-production"
     algorithm: str = "HS256"
     access_token_expire_minutes: int = 1440  # 24 horas
+    # SameSite do cookie refresh_token. "lax" serve quando frontend e API são o mesmo site
+    # (desenvolvimento local). No Render eles ficam em sites diferentes e precisam de "none".
+    refresh_cookie_samesite: Literal["lax", "strict", "none"] = "lax"
+
+    # ── Seed (rotas /api/dev) ────────────────────────────
+    # Vazias = rotas de seed desligadas (404) e admin de demonstração não criado.
+    seed_secret: str = ""
+    seed_admin_password: str = ""
+    # Vazia = barbeiro e cliente de demonstração ficam com senha aleatória (sem login).
+    seed_demo_password: str = ""
+
+    # ── Agendamento ──────────────────────────────────────
+    # Fuso em que o expediente (WorkSchedule) e as datas da tela são interpretados.
+    # O banco guarda sempre UTC.
+    shop_timezone: str = "America/Sao_Paulo"
+    # Antecedência mínima para agendar (0 = só proíbe horários que já passaram) e
+    # quantos dias à frente se pode agendar. Provisórios até a resposta do cliente (#15).
+    booking_min_lead_minutes: int = 0
+    booking_max_days_ahead: int = 30
 
     # ── CORS ─────────────────────────────────────────────
-    cors_origins: str = "http://localhost:5173,http://localhost:3000,https://dsai-ap1-trim-frontend-production.up.railway.app"
+    # Só origens locais. Em produção, CORS_ORIGINS recebe a URL do frontend.
+    cors_origins: str = "http://localhost:5173,http://localhost:3000"
+
+    # ── Deploy ───────────────────────────────────────────
+    # O Render define RENDER_GIT_COMMIT em cada deploy; fora dele, "local".
+    render_git_commit: str = "local"
 
     # ── Server ───────────────────────────────────────────
     host: str = "0.0.0.0"

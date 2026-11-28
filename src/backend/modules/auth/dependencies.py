@@ -13,14 +13,23 @@ from src.backend.modules.auth import security
 from src.backend.modules.auth.models import User, UserRole
 from src.backend.modules.auth.service import AuthService
 
-security_scheme = HTTPBearer()
+# auto_error=False: a partir do FastAPI 0.12x, o HTTPBearer responde 401 sem token. A API sempre
+# respondeu 403 "Not authenticated" nesse caso, e os testes e o frontend contam com isso (#77).
+security_scheme = HTTPBearer(auto_error=False)
 
 
-async def get_current_user(
-    token: HTTPAuthorizationCredentials = Depends(security_scheme),
+PASSWORD_CHANGE_REQUIRED = "Troque a senha temporária para continuar."
+
+
+async def get_user_with_pending_password(
+    token: HTTPAuthorizationCredentials | None = Depends(security_scheme),
     db: AsyncSession = Depends(get_db),
 ) -> User:
-    """Extrai, valida o JWT e retorna o usuário do banco."""
+    """Extrai, valida o JWT e retorna o usuário do banco, mesmo com a troca de senha pendente.
+
+    Só `GET /me` e `PUT /me/password` usam esta dependência direto (#99)."""
+    if token is None or token.scheme.lower() != "bearer":
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Not authenticated")
     payload = security.decode_token(token.credentials)
     if not payload:
         raise HTTPException(
@@ -65,6 +74,13 @@ async def get_current_user(
             detail="Usuário inativo.",
         )
 
+    return user
+
+
+async def get_current_user(user: User = Depends(get_user_with_pending_password)) -> User:
+    """Usuário logado. Com uma senha temporária ainda não trocada, a API responde 403 (#99)."""
+    if user.must_change_password:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=PASSWORD_CHANGE_REQUIRED)
     return user
 
 

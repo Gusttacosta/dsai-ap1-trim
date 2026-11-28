@@ -1,212 +1,223 @@
-# AGENTS.md — Diretrizes e Base Operacional do Projeto
+# AGENTS.md — Diretrizes e Base Operacional do Projeto (AP2)
 
-Este arquivo define os padrões de arquitetura, fluxo de trabalho, convenções de versionamento e regras obrigatórias para o desenvolvimento da **Atividade Prática 1 (AP1)** da disciplina **Desenvolvimento de Software Apoiado por IA (2026.4 — UFPA)**, ministrada pelo **Prof. Gustavo Pinto**.
+Este arquivo define as regras, o fluxo de trabalho e as convenções para a **Atividade Prática 2 (AP2)** da disciplina **Desenvolvimento de Software Apoiado por IA (2026.4 — UFPA)**, ministrada pelo **Prof. Gustavo Pinto**.
 
-Todas as sessões de desenvolvimento (conduzidas por agentes de IA ou humanos) **devem** seguir estritamente as diretrizes aqui documentadas.
+Todas as sessões de desenvolvimento, conduzidas por agentes de IA ou por humanos, **devem** seguir estas diretrizes.
 
----
-
-## 1. Visão Geral e Metas
-
-- **Objetivo:** Construção de uma aplicação completa, funcional e **não trivial** (ex.: delivery/pedidos, carona/mobilidade, avaliação de locais, etc.).
-- **Metodologia:** **SDD (Spec-Driven Development)** com fluxo *Spec -> Plan -> Tasks*.
-- **Valor:** 30 pontos (única atividade prática do semestre).
-- **Data limite de commits:** **01/10/2026 às 18:00h** (commits posteriores serão desconsiderados).
-- **Apresentação:** **01/10/2026** (ao vivo, sem slides, navegando na URL pública e no repositório).
+> **Princípio da AP2:** a avaliação é extraída do repositório por script.
+> *"O que não está no repositório não aconteceu."*
 
 ---
 
-## 2. Requisitos Obrigatórios de Entrega
+## 1. Contexto
 
-1. **Aplicação Publicada:**
-   - Deve abrir com apenas 1 clique a partir de uma **URL pública** informada no `README.md`.
-   - Deve estar estável e funcional no momento da apresentação.
-2. **Meta de 100 Mil Linhas de Código:**
-   - Medição oficial realizada pelo utilitário `cloc`.
-   - Excluem-se dependências, builds, arquivos de lock, documentações e bases de dados.
-3. **SDD Rígido (Spec-First):**
-   - Cada parte ou módulo do sistema deve possuir uma especificação datada na pasta `SPEC/`.
-   - **Regra de ouro:** A spec deve ser **commitada no Git ANTES** do código que a implementa.
-4. **Registro Integral de Sessões e Prompts:**
-   - Todo e qualquer prompt utilizado precisa ser registrado na íntegra em `prompts/sessoes/`.
-   - Projeto no ar sem o histórico dos prompts **não será avaliado**.
-5. **Autoria e Colaboração:**
-   - Repositório novo e público no GitHub (ex.: `dsai-ap1-<nome-da-app>`).
-   - Ambos os membros da dupla devem assinar commits com suas respectivas contas do GitHub para comprovar a divisão de sessões.
-   - Todo código deve entrar via terminal (`git commit` e `git push`); **proibido** upload manual via interface web do GitHub.
-   - Histórico do Git não pode ser reescrito: **proibido** `git rebase` de commits já enviados, `git squash` destrutivo ou `push --force`.
+- **Projeto herdado:** Trim, sistema de gestão de barbearia, desenvolvido na AP1 em `Gusttacosta/dsai-ap1-trim`.
+- **Fork da AP2:** `henriquelm-io/dsai-ap2-trim`.
+- **Dupla (FDE):** `Severino-Sobrinho` e `henriquelm-io`. A dupla é dona do negócio e da técnica.
+- **Cliente:** o autor original da AP1. **O cliente não escreve código**: commits dos autores originais no fork não contam.
+- **Linha de base:** o último commit herdado da AP1 é `95c79b5` (a confirmar com o professor, já que houve commits depois do prazo da AP1). Toda métrica de "código novo" é medida a partir dele.
+- **Missão:** estudar o projeto, entender o que foi construído, investigar se foi usado, definir o que falta e implementar.
 
 ---
 
-## 3. Estrutura de Pastas do Repositório
+## 2. Restrições (violá-las anula a AP2)
+
+1. **Sem reescrita.** Trocar linguagem ou framework, abrir um repositório novo ou apagar módulos para refazê-los **anula a AP2**.
+2. **Refatoração localizada**, sempre justificada em uma issue e coberta por teste.
+3. **100 mil linhas novas**, medidas como a diferença entre o fork e a linha de base (`cloc --diff`). O que já existia não conta.
+4. **Fora da contagem:** código duplicado, código gerado em massa, código morto e arquivos gerados (lockfiles, `build/`, `dist/`, `vendor/`, minificados). **Proibido inflar a contagem.**
+5. **Histórico sem reescrita:** proibido `push --force`, `rebase` de commits já enviados e `squash` destrutivo na `main`.
+6. **Gate:** sem **URL pública no ar** e **CI verde**, a AP2 não é avaliada. Critério abaixo do mínimo vale zero.
+
+---
+
+## 3. Métricas de avaliação (50 pts)
+
+| Critério | Métrica | Mínimo | Pts |
+| :--- | :--- | :--- | ---: |
+| Tamanho | linhas novas no `cloc`, descontado o que a AP1 já tinha | 100 mil | 8 |
+| Duplicação | código duplicado (`jscpd`) | até 5% | 3 |
+| Specs | spec datada em `SPEC/` por funcionalidade nova, commitada **antes** do 1º commit de código que a cita | 100% | 5 |
+| Commits com agente | commits com trailers `Agent:` e `Spec:` | 80% | 3 |
+| Frequência | dias distintos com commit; mediana do tamanho do commit | 2 dias/semana; mediana < 400 linhas | 3 |
+| Sessões | sessão em `prompts/sessoes/` para cada dia com commit de agente | 100% dos dias | 3 |
+| Autoria | parcela de commits de cada membro da dupla | 30% cada | 2 |
+| Testes | cobertura de linhas do código novo (diff coverage) | 70% | 5 |
+| Testes que testam | testes novos falham quando a mudança é revertida | amostra de 5, todos falham | 4 |
+| CI | pipeline verde no último commit da `main`; builds verdes no projeto | verde; 80% | 3 |
+| Revisão | merges na `main` feitos por PR aprovado pela dupla | 100% | 3 |
+| Segurança | segredos no histórico (`gitleaks`) e alertas críticos de dependências | zero | 3 |
+| Produção | URL pública responde e serve a versão do último commit da `main` | no ar no dia | 3 |
+| Custo | tokens ou custo registrado em cada sessão | 100% | 2 |
+
+---
+
+## 4. Fluxo de trabalho
+
+1. **Investigar com evidência.** Todo problema ou necessidade vira uma **issue** com passos de reprodução, evidência (saída, arquivo:linha, print) e proposta. O backlog é a lista de issues.
+2. **Spec antes do código.** Funcionalidade nova ou mudança de comportamento exige uma spec em `SPEC/`, commitada antes de qualquer código que a cite (ver §6).
+3. **Uma branch por issue ou spec**, criada a partir da `main` atualizada:
+   - `feat/<assunto>`, `fix/<assunto>`, `test/<assunto>`, `docs/<assunto>`, `chore/<assunto>`.
+4. **Commits pequenos** (mediana < 400 linhas), cada um com testes quando alterar código (ver §7).
+5. **Pull Request para a `main`**, que referencia a issue (`Closes #N`) e a spec. Precisa de **aprovação do outro membro da dupla**. **Ninguém faz push direto na `main`.**
+6. **CI verde** é pré-requisito do merge. PR com CI vermelha não entra.
+7. **Registrar a sessão** com o agente em `prompts/sessoes/` no mesmo dia, com o custo (ver §8).
+8. Todo código entra via `git commit`/`git push` pelo terminal. É proibido upload pela interface web do GitHub.
+
+---
+
+## 5. Estrutura de pastas
 
 ```text
 .
-├── AGENTS.md      # Este arquivo: constituição e regras do projeto
-├── README.md      # URL pública, dupla, stack, como rodar, ferramentas/modelos e saída do cloc
-├── SPEC/          # Uma spec por parte/módulo do sistema (datadas)
-│   ├── 2026-09-29-visao-geral.md
-│   └── ...
-├── src/           # Código-fonte da aplicação (organização interna livre)
-├── tests/         # Testes automatizados (unitários, integração, e2e)
+├── AGENTS.md          # Este arquivo
+├── README.md          # URL pública, dupla, stack, como rodar, saída do cloc
+├── .github/workflows/ # CI (GitHub Actions)
+├── SPEC/              # Specs datadas (AP1: 2026-09-29-*; AP2: datas a partir de 2026-11)
+├── src/
+│   ├── backend/       # FastAPI (Python 3.12)
+│   └── frontend/      # React + Vite (TypeScript)
+├── tests/             # Testes automatizados
 └── prompts/
-    └── sessoes/   # Exportações brutas das conversas e interações com IA
+    └── sessoes/       # Sessões com agentes, notas e CUSTOS.md/NOTAS.md (gerados)
 ```
 
-*Arquivos complementares opcionais:*
-- `PLAN.md` / `TASKS.md` (detalhamento de planos e tarefas)
-- Registro de custos de API / tokens consumidos
+`scripts/custos.py` gera `prompts/sessoes/CUSTOS.md` e `prompts/sessoes/NOTAS.md` (ver §8).
+
+### Arquitetura (mantida da AP1; proibido "obeliscos")
+
+**Backend (Python/FastAPI):** cada módulo é um pacote em `src/backend/modules/`, com:
+- `models.py`: só tabelas;
+- `schemas.py`: só validação (Pydantic);
+- `service.py`: regras de negócio (nunca no router);
+- `router.py`: só a rota e a injeção de dependências, delegando ao service.
+
+**Frontend (React/Vite):** componentes pequenos e com responsabilidade única, lógica de dados em *custom hooks*, páginas em `src/pages/` e componentes reutilizáveis em `src/components/`.
 
 ---
 
-## 4. Arquitetura e Modularidade (Proibido "Obeliscos")
+## 6. Specs (`SPEC/`)
 
-O projeto adota uma política de **tolerância zero** para arquivos gigantes (obeliscos/arquivos monolíticos) e código espaguete. A manutenção e escalabilidade são prioridades.
+- Nome: `AAAA-MM-DD-<parte-do-sistema>.md`, com a data em que a spec foi escrita.
+- **Mudança de rumo:** crie um arquivo novo com a nova data e declare no topo qual spec anterior ele substitui ou revisa. Não reescreva specs antigas.
+- **Specs da AP1 são somente leitura:** os arquivos `SPEC/2026-09-29-*` nunca são editados, renomeados ou apagados. Qualquer mudança no que eles descrevem vira uma spec nova da AP2, com `> Substitui/complementa: SPEC/<arquivo>.md` no topo.
+- **Pequenos ajustes:** valem só para specs da AP2. Edite a spec existente em um commit próprio, antes do código.
 
-### Backend (Python/FastAPI)
-- **Estrutura Modular:** Cada módulo (auth, barbers, services, etc.) deve ser um pacote isolado dentro de `src/backend/modules/`.
-- **Separação de Responsabilidades (Clean Architecture style):**
-  - `models.py`: Apenas definição das tabelas do banco.
-  - `schemas.py`: Apenas validação de dados (Pydantic).
-  - `service.py`: Regras de negócio (nunca no router).
-  - `router.py`: Apenas a definição da rota e injeção de dependências, delegando a execução para o service.
-
-### Frontend (React/Vite)
-- **Componentização:** Componentes grandes devem ser quebrados em subcomponentes menores, reutilizáveis e com responsabilidade única.
-- **Hooks Customizados:** Lógica complexa ou de fetch de dados deve ser extraída do componente para *custom hooks* (ex.: `useAuth`, `useAppointments`).
-- **Páginas vs. Componentes:** Telas/Páginas ficam em `src/pages/` (ou rota) e componentes reutilizáveis em `src/components/`.
-
----
-
-## 5. Padrão da Pasta `SPEC/` (Spec-Driven Development)
-
-### Nomenclatura dos arquivos
-- Formato: `AAAA-MM-DD-<parte-do-sistema>.md`
-- Exemplos:
-  - `SPEC/2026-09-29-visao-geral.md`
-  - `SPEC/2026-09-29-autenticacao.md`
-  - `SPEC/2026-09-30-catalogo-produtos.md`
-  - `SPEC/2026-09-30-carrinho.md`
-  - `SPEC/2026-10-01-checkout.md` (se substituir uma parte anterior, declarar no topo)
-
-### Template de Cada Spec
-Toda especificação deve conter seções objetivas e verificáveis:
+### Template
 
 ```markdown
 # [Nome da Funcionalidade/Módulo] (AAAA-MM-DD)
 
+> Substitui/complementa: SPEC/<arquivo>.md (se houver)
+> Issue: #N
+
 ## O quê e por quê
-Descrição clara do problema, da solução técnica e do valor para o usuário final.
+Problema, solução e valor para o usuário.
 
 ## Critérios de aceitação
-- [ ] Critério 1 verificável objetivamente
-- [ ] Critério 2 verificável objetivamente
-- [ ] Critério 3 de tratamento de erros ou limites
+- [ ] Critério verificável 1
+- [ ] Critério verificável 2
+- [ ] Tratamento de erros e limites
 
 ## Fora do escopo
-- O que deliberadamente NÃO será implementado nesta etapa/módulo.
-```
+- O que deliberadamente NÃO será feito.
 
-### Regras de Ciclo de Vida da Spec
-- **Pequenos ajustes:** Edite a spec existente e realize um commit com trailer `Spec: ...`.
-- **Mudança de rumo:** Crie um novo arquivo com nova data, indicando qual spec anterior está sendo substituída ou revisada.
-- **Antes do código:** Sempre realize o commit da spec antes de iniciar a implementação do código correspondente.
+## Rollback
+- Código: `git revert -m 1 <sha-do-merge>` numa branch, por PR (nunca `push --force`).
+- Migração (se houver): `alembic downgrade <revisão-anterior>`, junto com o revert do PR.
+- Deploy: redeploy do commit anterior no Render (Rollback no deploy anterior do serviço).
+```
 
 ---
 
-## 5. Padrão de Commits e Git Trailers
+## 7. Commits e trailers
 
-Os commits devem ser atômicos, frequentes e pequenos (no mínimo um commit para cada parte/funcionalidade do sistema).
+### Formato
 
-### Formato Obrigatório da Mensagem:
 ```text
 <escopo>: <descrição sucinta no imperativo>
+
+<corpo opcional: o que mudou e por quê; Refs #N>
 
 Agent: <ferramenta/modelo>
 Spec: SPEC/<arquivo-da-spec>.md
 ```
 
-### Variações do Trailer `Agent:`
-- Código gerado integralmente por agente:  
-  `Agent: antigravity/gemini-2.5-pro` (ou `claude-code/claude-sonnet-5-5`, etc.)
-- Código gerado por agente e ajustado manualmente:  
-  `Agent: antigravity/gemini-2.5-pro + manual`
-- Código escrito 100% à mão (sem auxílio de agente):  
-  `Agent: none`
+### Trailer `Agent:`
+- Gerado por agente: `Agent: claude-code/claude-opus-5-5`
+- Gerado por agente e ajustado à mão: `Agent: claude-code/claude-opus-5-5 + manual`
+- 100% manual: `Agent: none`
 
-### Exemplo de Commit Válido:
-```text
-carrinho: bloqueia adicao de itens sem estoque disponivel
+### Trailer `Spec:`
+- Sempre que existir uma spec relacionada, aponte para ela, **inclusive em `fix:`**. Correções de bug apontam para a spec da funcionalidade corrigida (por exemplo, `SPEC/2026-09-29-agendamentos.md`).
+- Mudanças de processo, CI ou documentação apontam para `SPEC/2026-11-10-processo-ap2.md`.
+- `Spec: none` só em último caso. A meta é que ≥ 80% dos commits tenham os dois trailers com valor real.
 
-Agent: antigravity/gemini-2.5-pro
-Spec: SPEC/2026-09-30-carrinho.md
-```
+### Autoria
+- Cada membro faz commits com a **própria conta** (`git config user.name/user.email` local do repositório). Meta: ≥ 30% dos commits para cada um.
 
----
-
-## 6. Registro de Prompts e Sessões (`prompts/sessoes/`)
-
-Nenhuma interação pode ser perdida ou omitida.
-
-### O que deve ser registrado:
-- Todos os prompts do início ao fim do projeto;
-- Prompts curtos de continuidade ou correção (ex.: *"continue"*, *"arrume o erro x"*);
-- Prompts de brainstorming ou rascunho de specs realizados em navegadores ou ferramentas auxiliares;
-- Prompts que geraram erros ou código descartado;
-- Os textos devem ser mantidos **exatamente como foram digitados**, preservando erros de digitação e termos originais (nunca editar a posteriori).
-
-### Nomenclatura dos arquivos de sessão:
-`prompts/sessoes/AAAA-MM-DD-HHMM-<ferramenta>.<ext>`
-*(Exemplo: `2026-09-29-2030-antigravity.md` ou `2026-09-30-1415-claudecode.jsonl`)*
-
-### Segurança e Segredos (CRÍTICO):
-- **Varredura obrigatória antes de cada commit:** Verificar se os logs contêm senhas, chaves de API (`AIza...`, `sk-...`), tokens de acesso ou conteúdos de arquivos `.env`.
-- Caso alguma credencial vaze em um log, ela deve ser **imediatamente revogada e recriada**, e não apenas apagada do histórico.
-- Sessões com arquivos brutos superiores a **50 MB** devem ser compactadas via `gzip` (`.gz`).
+### Testes junto com o código
+- Toda mudança de código vem com testes que **falham se a mudança for revertida**. Antes do PR, confira: reverta a mudança localmente, rode o teste e veja ele falhar.
+- Meta de cobertura do diff: ≥ 70% das linhas novas.
 
 ---
 
-## 7. Verificação de Volume de Código (`cloc`)
+## 8. Sessões e custo (`prompts/sessoes/`)
 
-O projeto deve atingir no mínimo **100.000 linhas de código** em arquivos de produção e testes.
+- **Toda sessão com agente** que resultar em commit deve ser registrada no mesmo dia, na íntegra (exportação bruta), incluindo prompts curtos ("continue"), prompts descartados e prompts que causaram erro.
+- Nome: `prompts/sessoes/AAAA-MM-DD-HHMM-<ferramenta>.<ext>` (horário de início, America/Sao_Paulo). Exemplo: `2026-11-10-1933-claudecode.jsonl`.
+- **Custo:** cada sessão aparece como uma linha em `prompts/sessoes/CUSTOS.md`, com tokens de entrada, saída e cache. O `CUSTOS.md` e o `NOTAS.md` são **gerados** por `scripts/custos.py`: não edite os dois à mão.
+- Arquivos acima de 50 MB devem ser compactados com `gzip`.
 
-### Comando Oficial de Verificação:
+### Registrar uma sessão (fluxo)
+
+1. **Exporte a sessão principal** como `prompts/sessoes/<sessão>-claudecode.jsonl`, onde `<sessão>` é `AAAA-MM-DD-HHMM` (início da sessão).
+2. **Exporte cada subagente** da sessão como `prompts/sessoes/<sessão>-claudecode-subagente-<n>.jsonl` (`<n>` a partir de 1), com **o mesmo mascaramento** da sessão principal. Os tokens deles entram na linha da sessão principal.
+3. **Crie a nota** `prompts/sessoes/<sessão>.notas.md` se houver algo a explicar: como foi exportada, o que foi mascarado, corte por `timestamp`, o que ficou de fora da contagem. Uma nota que vale para várias sessões fica na primeira delas, e as outras ganham uma nota de uma linha: `Ver a nota em <arquivo>`.
+4. **Rode `python scripts/custos.py` antes do commit** e commite o `CUSTOS.md` e o `NOTAS.md` regravados junto com a sessão.
+
+A soma usa as respostas do agente (`type: assistant`), uma vez por `message.id`, sem o modelo `<synthetic>` (SPEC/2026-11-24-custos-gerados.md). Um PR com sessão só acrescenta arquivos novos. Se a `main` ganhar outra sessão enquanto o PR está aberto, faça o merge da `main` e rode o script de novo: num conflito no `CUSTOS.md` ou no `NOTAS.md`, fique com qualquer um dos lados e regrave. A CI roda `python scripts/custos.py --check` e falha se os dois arquivos estiverem desatualizados.
+
+### Segurança (CRÍTICO)
+- **Varredura antes de cada commit** de sessão: senhas, chaves (`AIza...`, `sk-...`, `gh*_...`), tokens JWT, conteúdo de `.env`, e-mails pessoais.
+- O único tipo de edição permitido em uma sessão exportada é **mascarar segredos** (por exemplo, `[jwt-removido]`). Registre isso na nota da sessão (`<sessão>.notas.md`). Nenhuma outra edição é permitida.
+- Credencial vazada deve ser **revogada e recriada**, não apenas removida.
+
+---
+
+## 9. Integração contínua
+
+- `.github/workflows/ci.yml` roda em todo `push` e `pull_request` para a `main`:
+  - **backend:** Python 3.12, `pip install -r requirements.txt`, import de `src.backend.main` e `pytest`;
+  - **frontend:** Node LTS, `npm ci` e `npm run build` em `src/frontend`;
+  - **gitleaks:** histórico inteiro, com as exceções de `.gitleaks.toml` (só falsos positivos conhecidos, exigindo caminho e valor). Um falso positivo novo vira uma exceção restrita nesse arquivo, nunca um caminho liberado inteiro.
+- Próximas etapas previstas (cada uma em PR próprio): banco PostgreSQL de teste na CI, cobertura do diff, `jscpd`, `npm audit`.
+
+---
+
+## 10. Medição de volume (`cloc`)
+
+Linhas novas em relação à linha de base (§1):
+
 ```bash
-cloc . --vcs=git \
+cloc --git --diff 95c79b5 HEAD \
   --exclude-dir=node_modules,vendor,dist,build,prompts \
   --exclude-lang=Markdown,JSON,YAML,CSV,Text,SVG \
   --not-match-f='(lock|\.min\.)'
 ```
 
-- A saída tabular gerada pelo comando deve ser colada no `README.md`.
-- No `README.md`, detalhar a proporção de linhas de código de aplicação vs. linhas de código de testes.
+Cole a saída no `README.md` e separe linhas de aplicação de linhas de teste.
 
 ---
 
-## 8. Roteiro da Apresentação (01/10)
+## 11. Checklist antes de abrir um PR
 
-A apresentação da dupla não terá slides. A avaliação será conduzida em 4 etapas objetivas:
-
-1. **Demonstração ao Vivo:** Abrir a URL pública e executar o fluxo principal de ponta a ponta.
-2. **A Spec em 1 Minuto:** Explicar sucintamente o objetivo do sistema e os limites do escopo.
-3. **Os 3 Prompts:**
-   - O prompt que **melhor funcionou**;
-   - O prompt que **pior funcionou** (ou causou regressão);
-   - O prompt que **mudou os rumos** do projeto;
-   - *(Explicar a causa e o aprendizado de cada um).*
-4. **Métricas Finais:** Total de linhas (`cloc`), quantidade de specs, total de prompts/sessões e horas estimadas.
-
----
-
-## 10. Checklist de Conformidade Pré-Commit e Entrega
-
-- [ ] URL pública ativa e adicionada com destaque no topo do `README.md`.
-- [ ] Especificações com formato `AAAA-MM-DD-<parte>.md` na pasta `SPEC/`.
-- [ ] Ordem cronológica comprovada no Git: commits de spec precedem commits de código.
-- [ ] Logs brutos de todas as interações salvos em `prompts/sessoes/`.
-- [ ] Código refatorado e modularizado: nenhum "obelisco" ou arquivo excessivamente longo. Regras de negócio separadas dos controllers/routers.
-- [ ] Ausência total de segredos (chaves de API / senhas) no repositório.
-- [ ] Todos os commits possuem os metadados `Agent:` e `Spec:`.
-- [ ] Ambos os membros da dupla possuem commits autorados com suas respectivas contas.
-- [ ] Saída do `cloc` inserida no `README.md` demonstrando no mínimo 100.000 linhas.
-- [ ] Último commit realizado até 01/10 às 18:00h.
+- [ ] Issue criada, com evidência, e referenciada no PR.
+- [ ] Spec commitada antes do código (quando for funcionalidade ou mudança de comportamento).
+- [ ] Commits pequenos, com `Agent:` e `Spec:`.
+- [ ] Testes novos passam e **falham com a mudança revertida**.
+- [ ] CI verde.
+- [ ] Sessão do dia em `prompts/sessoes/`, varrida em busca de segredos (subagentes inclusive), e `python scripts/custos.py` rodado (`CUSTOS.md` e `NOTAS.md` em dia).
+- [ ] Nenhum segredo no diff (`.env`, chaves, tokens).
+- [ ] Nenhum código duplicado, gerado em massa ou morto adicionado para inflar linhas.
+- [ ] Revisão e aprovação do outro membro da dupla.
