@@ -150,6 +150,25 @@ CORS_ORIGINS=http://localhost:5173,http://<ip-da-vm>:5173
 `CORS_ORIGINS` precisa incluir `http://<ip-da-vm>:5173`, porque é dessa origem que o navegador do
 host chama a API. O `.env` está no `.gitignore` e nunca vai para o Git.
 
+Todas as variáveis do [`.env.example`](.env.example), que valem também para a seção do Windows:
+
+| Variável | Padrão no `.env.example` | Para que serve |
+| :--- | :--- | :--- |
+| `DATABASE_URL` / `DATABASE_URL_SYNC` | `postgres:postgres@localhost:5432/trim_db` | Banco da API (`asyncpg`) e URL síncrona (`psycopg2`), usada pelo Alembic |
+| `SECRET_KEY` | valor de exemplo | Assina os JWT. Troque por um valor longo e aleatório |
+| `ALGORITHM` | `HS256` | Algoritmo dos JWT |
+| `ACCESS_TOKEN_EXPIRE_MINUTES` | `1440` | Validade do access token, em minutos |
+| `APP_NAME` / `APP_ENV` / `DEBUG` | `Trim` / `development` / `true` | Com `APP_ENV=development`, o backend cria as tabelas que faltarem e publica o `/docs` |
+| `CORS_ORIGINS` | `http://localhost:5173,http://localhost:3000` | Origens do frontend liberadas, separadas por vírgula |
+| `HOST` / `PORT` | `0.0.0.0` / `8000` | Endereço do servidor |
+| `SEED_SECRET`, `SEED_ADMIN_PASSWORD`, `SEED_DEMO_PASSWORD` | vazias | Seed de demonstração (ver o passo 6). Vazio = rotas de seed desligadas |
+| `SHOP_TIMEZONE` | `America/Sao_Paulo` | Fuso da barbearia: o expediente e as datas da tela seguem esse fuso, e o banco guarda UTC |
+| `BOOKING_MIN_LEAD_MINUTES` | `0` | Antecedência mínima de um agendamento, em minutos (0 só proíbe o passado) |
+| `BOOKING_MAX_DAYS_AHEAD` | `30` | Até quantos dias à frente se pode agendar |
+
+O frontend tem o próprio [`src/frontend/.env.example`](src/frontend/.env.example), só com a
+`VITE_API_URL` (ver o passo 5).
+
 #### 4. Backend
 
 ```bash
@@ -720,19 +739,25 @@ SUM:
 ├── pytest.ini                 # pythonpath = . (para importar src.backend nos testes)
 ├── Procfile                   # Herdado da AP1
 ├── alembic.ini
-├── alembic/                   # Migrações do Alembic (scripts/migrate.py as aplica, ver #6)
+├── alembic/
+│   └── versions/              # Migrações 0001 a 0004 (scripts/migrate.py as aplica, ver #6)
 ├── .env.example               # Modelo do .env do backend
+├── .coveragerc               # Cobertura do pytest-cov (inclui o greenlet do SQLAlchemy assíncrono)
+├── .gitleaks.toml            # Exceções do gitleaks, restritas aos falsos positivos conhecidos
 ├── .github/
 │   └── workflows/
-│       └── ci.yml             # CI: backend (pytest + PostgreSQL) e frontend (testes + build)
+│       └── ci.yml             # CI: backend, frontend, gitleaks, trailers, dependências e duplicação
+├── docs/
+│   └── PASSAGEM.md            # Passagem do projeto para quem vai mantê-lo
 ├── SPEC/                      # Specs datadas
 │   ├── 2026-09-29-*.md        # AP1, somente leitura
-│   └── 2026-11-*.md           # AP2: processo, deploy, seed, fuso, cancelamento
+│   └── 2026-11-*.md           # AP2: uma spec por mudança (processo, deploy, correções, painel...)
 ├── scripts/
-│   └── custos.py              # Gera prompts/sessoes/CUSTOS.md e NOTAS.md (--check na CI)
+│   ├── custos.py              # Gera prompts/sessoes/CUSTOS.md e NOTAS.md (--check na CI)
+│   └── migrate.py             # Aplica as migrações (stamp 0001 em banco antigo); roda a cada deploy
 ├── src/
 │   ├── backend/
-│   │   ├── main.py            # App FastAPI, CORS, /health, criação das tabelas
+│   │   ├── main.py            # App FastAPI, CORS, /health (commit no ar); create_all só em development
 │   │   ├── config.py          # Configuração lida do .env (pydantic-settings)
 │   │   ├── database.py        # Engine e sessão assíncronas (SQLAlchemy)
 │   │   └── modules/           # Um pacote por módulo: models, schemas, service, router
@@ -741,9 +766,9 @@ SUM:
 │       ├── .env.example       # VITE_API_URL
 │       ├── package.json
 │       └── src/
-│           ├── pages/         # Páginas (Booking, Dashboard, Admin*, ...)
+│           ├── pages/         # Páginas (Booking, Dashboard, abas do painel admin, conta do cliente...)
 │           └── utils/         # Ex.: shopDate.ts (datas no fuso da barbearia) + teste
-├── tests/                     # pytest (testes da AP1 e testes novos da AP2)
+├── tests/                     # pytest: testes de integração por módulo e testes das correções da AP2
 └── prompts/
     └── sessoes/               # Transcrições das sessões com agentes
         ├── CUSTOS.md          # Tokens de cada sessão (gerado por scripts/custos.py)
