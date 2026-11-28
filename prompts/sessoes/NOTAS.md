@@ -216,3 +216,9 @@ Sessão de 26/11 a partir das 18:40 (PR #111). O prompt já mandava rodar o pyte
 ### [2026-11-26-1921-claudecode.jsonl](2026-11-26-1921-claudecode.jsonl)
 
 Sessão de 26/11 a partir das 19:21 (issue #112, PR #113, estoque no painel). A suíte completa do vitest rodou 4 vezes no frontend. Em uma delas, 1 teste falhou (846 de 847 passaram), e as outras 3 passaram inteiras. A saída filtrada não registrou qual teste falhou. Rodar 3 vezes os arquivos do estoque e do Dashboard também não repetiu a falha, então ela foi tratada como intermitente e não como erro da mudança. Os testes do frontend passaram na CI do PR.
+
+### [2026-11-28-1100-claudecode.jsonl](2026-11-28-1100-claudecode.jsonl)
+
+Exportação parcial: a transcrição vai de 2026-11-28T14:00:06Z até o corte em 2026-11-28T14:15:14Z.
+O que veio depois do corte ficou de fora: o commit e o push deste registro, e a conferência da CI
+do #118.
