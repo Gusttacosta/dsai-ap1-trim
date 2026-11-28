@@ -42,14 +42,20 @@ Repositório original (AP1): [Gusttacosta/dsai-ap1-trim](https://github.com/Gust
 - **Estilização:** CSS puro (`index.css` global e CSS Modules por página)
 - **Testes do frontend:** Vitest (`npm test`)
 - **Backend / API:** Python 3.12 + FastAPI, servido pelo Uvicorn
-- **ORM:** SQLAlchemy 2 assíncrono (`asyncpg`; `psycopg2` para a URL síncrona). O Alembic está nas dependências, mas não há migrações: as tabelas são criadas na inicialização da API (ver #6)
+- **ORM / Migrações:** SQLAlchemy 2 assíncrono (`asyncpg`; `psycopg2` para a URL síncrona) e Alembic, com as migrações em `alembic/versions/` (`0001` a `0004`) aplicadas por `scripts/migrate.py` (#6, PR #94)
 - **Banco de Dados:** PostgreSQL (16 na CI; o Render fornece o de produção)
 - **Validação e configuração:** Pydantic 2 + pydantic-settings (variáveis do `.env`)
-- **Autenticação:** JWT (python-jose + passlib/bcrypt)
+- **Autenticação:** JWT com PyJWT (no lugar do python-jose desde o PR #43) + passlib/bcrypt, com refresh token e logout que revoga a sessão
 - **Fuso horário:** `zoneinfo` + `tzdata`, com o fuso da barbearia em `SHOP_TIMEZONE` ([`SPEC/2026-11-18-agendamento-fuso-horario.md`](SPEC/2026-11-18-agendamento-fuso-horario.md))
 - **Testes do backend:** pytest + pytest-asyncio + httpx; os testes de banco usam um PostgreSQL em `TEST_DATABASE_URL`
 - **Qualidade:** Ruff
-- **CI:** GitHub Actions ([`.github/workflows/ci.yml`](.github/workflows/ci.yml)), em todo push e PR para a `main`: backend (Python 3.12, PostgreSQL 16 de serviço, import da aplicação e `pytest`) e frontend (Node 22, `npm ci`, `npm test`, build sem `VITE_API_URL` precisa falhar, build com ela precisa passar, nenhuma URL do Railway em `src/`)
+- **CI:** GitHub Actions ([`.github/workflows/ci.yml`](.github/workflows/ci.yml)), em todo push e PR para a `main`, com seis jobs:
+  - `backend`: Python 3.12 e PostgreSQL 16 de serviço. Faz o import da aplicação, roda `scripts/custos.py --check` e o `pytest` com cobertura, e o `diff-cover` exige pelo menos 70% de cobertura do código novo;
+  - `frontend`: Node 22. Confere que não há URL do Railway em `src/` e roda `npm ci`, `tsc` e `npm test`. O build sem `VITE_API_URL` precisa falhar, e com ela precisa passar;
+  - `gitleaks`: procura segredos no histórico inteiro, com as exceções restritas de [`.gitleaks.toml`](.gitleaks.toml);
+  - `trailers`: todo commit do PR precisa ter `Agent:` e `Spec:`;
+  - `dependencias`: `npm audit` e `pip-audit`, que falham em alertas high e críticos;
+  - `duplicacao`: `jscpd` 5.4.3 em `src/`.
 - **Hospedagem / Deploy:** Render, pelo Blueprint [`render.yaml`](render.yaml): PostgreSQL (`trim-db`), API (`trim-api`, Web Service Python) e site estático (`trim-web`), com deploy automático a cada push na `main` ([`SPEC/2026-11-16-deploy-render.md`](SPEC/2026-11-16-deploy-render.md))
 
 ---
@@ -280,8 +286,8 @@ O backend sobe sem nenhuma variável extra desde a correção da #2 (PR #28). Nu
 ela, a inicialização falha com `UnicodeEncodeError` (os `print` com emoji não cabem no cp1252 do
 console). Nesse caso, rode `$env:PYTHONUTF8=1` antes do `uvicorn`.
 
-Como na seção do Henrique, **não há migrações** (ver #6): as tabelas são criadas pelo próprio
-backend ao iniciar. Para conferir, use `curl.exe http://localhost:8000/health`. No PowerShell 5.1,
+Como na seção do Henrique, rode `python scripts/migrate.py` antes do `uvicorn`, para aplicar as
+migrações do Alembic (ver #6). Para conferir, use `curl.exe http://localhost:8000/health`. No PowerShell 5.1,
 `curl` sem `.exe` é um apelido do `Invoke-WebRequest` e não aceita as mesmas opções.
 
 #### 5. Frontend
@@ -336,7 +342,8 @@ python -m pytest -q
 cd src\frontend; npm test
 ```
 
-Neste ambiente, a suíte do backend (cerca de 13 mil testes) leva de 1,5 a 2,5 minutos.
+A suíte do backend tem 1.226 testes (`pytest --collect-only -q`, em 28/11/2026). Os cerca de 13 mil
+testes gerados da AP1 foram trocados por testes de integração por módulo (#3).
 
 ---
 
@@ -365,8 +372,8 @@ Neste ambiente, a suíte do backend (cerca de 13 mil testes) leva de 1,5 a 2,5 m
 > cp .env.example .env
 > # Edite o .env com suas credenciais do PostgreSQL
 > 
-> # Execute as migrations (ver #6)
-> python scripts/migrate.py
+> # Execute as migrations
+> alembic upgrade head
 > 
 > # Execute o servidor de desenvolvimento
 > uvicorn src.backend.main:app --reload
@@ -393,8 +400,8 @@ Render: **New → Blueprint**, escolha este repositório e preencha as variávei
 
 | Serviço | Tipo | O que faz |
 | :--- | :--- | :--- |
-| `trim-db` | PostgreSQL (gratuito) | Banco de produção. As tabelas são criadas na inicialização da API. |
-| `trim-api` | Web Service Python 3.12 | `pip install -r requirements.txt`, depois `uvicorn src.backend.main:app --host 0.0.0.0 --port $PORT`. Health check em `/health`. Deploy automático a cada push na `main`. |
+| `trim-db` | PostgreSQL (gratuito) | Banco de produção. O esquema vem das migrações do Alembic, aplicadas a cada deploy da API. |
+| `trim-api` | Web Service Python 3.12 | `pip install -r requirements.txt`, depois `python scripts/migrate.py && uvicorn src.backend.main:app --host 0.0.0.0 --port $PORT`. O `migrate.py` aplica as migrações pendentes; num banco antigo, criado pelo `create_all`, ele faz antes o `stamp 0001`. Health check em `/health`. Deploy automático a cada push na `main`. |
 | `trim-web` | Static Site | Em `src/frontend`: `npm ci && npm run build`, publica `dist`. Rewrite de `/*` para `/index.html` (rotas do React Router). Deploy automático a cada push na `main`. |
 
 #### URLs reais dos serviços
